@@ -15,6 +15,7 @@ class _LibraryPageState extends State<LibraryPage> {
   String _searchQuery = '';
   List<Book> _books = [];
   bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -30,12 +31,20 @@ class _LibraryPageState extends State<LibraryPage> {
     setState(() {
       _isLoading = true;
     });
-    
-    final books = await BookService.instance.getBooks();
-    setState(() {
-      _books = books;
-      _isLoading = false;
-    });
+
+    try {
+      // Use validated books to ensure all file paths are correct
+      final books = await BookService.instance.getValidatedBooks();
+      setState(() {
+        _books = books;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to load books: ${e.toString()}';
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -92,27 +101,27 @@ class _LibraryPageState extends State<LibraryPage> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredBooks.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _filteredBooks.length,
-                        itemBuilder: (context, index) {
-                          final book = _filteredBooks[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: BookCard(
-                              title: book.title,
-                              author: book.author,
-                              coverImage: book.coverImagePath,
-                              progress: book.progress,
-                              onTap: () => _openBook(book),
-                              onContinue: () => _continueReading(book),
-                              onSettings: () => _showBookSettings(book),
-                              onDelete: () => _deleteBook(book),
-                            ),
-                          );
-                        },
-                      ),
+                ? _buildEmptyState()
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _filteredBooks.length,
+                    itemBuilder: (context, index) {
+                      final book = _filteredBooks[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: BookCard(
+                          title: book.title,
+                          author: book.author,
+                          coverImage: book.coverImagePath,
+                          progress: book.progress,
+                          onTap: () => _openBook(book),
+                          onContinue: () => _continueReading(book),
+                          onSettings: () => _showBookSettings(book),
+                          onDelete: () => _deleteBook(book),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -162,7 +171,7 @@ class _LibraryPageState extends State<LibraryPage> {
             ListTile(
               leading: Icon(Icons.file_upload),
               title: Text('Upload File'),
-              subtitle: Text('PDF, EPUB, TXT'),
+              subtitle: Text('EPUB, TXT'),
             ),
           ],
         ),
@@ -199,10 +208,35 @@ class _LibraryPageState extends State<LibraryPage> {
       }
     } catch (e) {
       if (mounted) {
+        String errorMessage = 'Failed to import book';
+
+        // Provide more specific error messages
+        if (e.toString().contains('iCloud')) {
+          errorMessage =
+              'iCloud files may not work in simulator. Please use local files or test on a real device.';
+        } else if (e.toString().contains('permission')) {
+          errorMessage =
+              'Permission denied. Please check file access permissions.';
+        } else if (e.toString().contains('not found')) {
+          errorMessage =
+              'File not found. The file may have been moved or deleted.';
+        } else if (e.toString().contains('copy')) {
+          errorMessage =
+              'Failed to copy file. Please try again or use a different file.';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to import book'),
-            duration: Duration(seconds: 3),
+          SnackBar(
+            content: Text(errorMessage),
+            duration: const Duration(seconds: 5),
+            backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'Dismiss',
+              textColor: Colors.white,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              },
+            ),
           ),
         );
       }
@@ -210,21 +244,15 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   void _openBook(Book book) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) =>
-            ReaderPage(bookTitle: book.title, bookAuthor: book.author),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => ReaderPage(book: book)));
   }
 
   void _continueReading(Book book) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) =>
-            ReaderPage(bookTitle: book.title, bookAuthor: book.author),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => ReaderPage(book: book)));
   }
 
   void _showBookSettings(Book book) {
@@ -239,7 +267,9 @@ class _LibraryPageState extends State<LibraryPage> {
             Text('Title: ${book.title}'),
             Text('Author: ${book.author}'),
             Text('File Type: ${book.fileType}'),
-            Text('File Size: ${(book.fileSize / 1024 / 1024).toStringAsFixed(1)} MB'),
+            Text(
+              'File Size: ${(book.fileSize / 1024 / 1024).toStringAsFixed(1)} MB',
+            ),
             Text('Import Date: ${book.importDate.toString().split(' ')[0]}'),
             const SizedBox(height: 16),
             const ListTile(

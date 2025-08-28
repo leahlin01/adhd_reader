@@ -123,9 +123,11 @@ The app has a centralized theme system (`app_theme.dart`) supporting:
 
 ### File Format Support
 
-Currently planned support for:
-- **MVP**: EPUB format (primary focus)
-- **Future**: PDF, TXT formats
+Currently supported formats:
+- **EPUB format** - Primary ebook format with rich formatting support
+- **TXT format** - Plain text files for simple reading
+
+Previously planned PDF support has been removed to focus on core functionality.
 
 ### Testing Strategy
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/book_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -272,6 +273,13 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           _buildDivider(),
           _buildSettingItem(
+            title: 'Clean Up Invalid Books',
+            subtitle: 'Remove books with missing files',
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _showCleanupDialog,
+          ),
+          _buildDivider(),
+          _buildSettingItem(
             title: 'Clear All Data',
             subtitle: 'Reset the app',
             trailing: const Icon(Icons.chevron_right),
@@ -407,6 +415,65 @@ class _SettingsPageState extends State<SettingsPage> {
       const SnackBar(
         content: Text('Exporting reading data...'),
         duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showCleanupDialog() async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clean Up Invalid Books'),
+        content: const Text(
+          'This action will remove all books from your library that have missing files. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+
+              // Show loading indicator
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Cleaning up invalid books...'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+
+              try {
+                // Perform cleanup
+                await BookService.instance.cleanupInvalidBooks();
+
+                // Show success message
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Invalid books cleaned up successfully'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              } catch (e) {
+                // Show error message
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error cleaning up books: $e'),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Clean Up'),
+          ),
+        ],
       ),
     );
   }

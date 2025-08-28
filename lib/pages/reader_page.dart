@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
+import '../services/book_service.dart';
+import '../services/text_reader_service.dart';
 
 class ReaderPage extends StatefulWidget {
-  final String bookTitle;
-  final String bookAuthor;
+  final Book book;
 
-  const ReaderPage({
-    super.key,
-    required this.bookTitle,
-    required this.bookAuthor,
-  });
+  const ReaderPage({super.key, required this.book});
 
   @override
   State<ReaderPage> createState() => _ReaderPageState();
@@ -17,44 +14,123 @@ class ReaderPage extends StatefulWidget {
 class _ReaderPageState extends State<ReaderPage> {
   double _fontSize = 18.0;
   double _lineHeight = 1.6;
-  double _progress = 0.25;
   bool _showToolbar = true;
   bool _isBookmarked = false;
+  bool _isLoading = true;
 
-  // Mock text content for demonstration
-  final String _sampleText = '''
-This is a sample text that demonstrates bionic reading. The first few letters of each word are bolded to help your brain recognize words faster.
+  List<String> _pages = [];
+  int _currentPageIndex = 0;
+  String _errorMessage = '';
 
-This technique can improve reading speed by 20-30% and reduce visual fatigue. It works by making the first few letters of each word stand out, allowing your brain to process the text more efficiently.
+  double get _progress {
+    if (_pages.isEmpty) return 0.0;
+    return (_currentPageIndex + 1) / _pages.length;
+  }
 
-Bionic reading is particularly helpful for people with ADHD, as it reduces the cognitive load required to process text and helps maintain focus on the content.
+  @override
+  void initState() {
+    super.initState();
+    _loadBookContent();
+  }
 
-The bolded letters act as anchors for your eyes, making it easier to scan through the text while maintaining comprehension. This method has been shown to improve reading speed without sacrificing understanding.
-''';
+  Future<void> _loadBookContent() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final content = await TextReaderService.instance.readBookContent(
+        widget.book.filePath,
+        widget.book.fileType,
+      );
+
+      final sanitizedContent = TextReaderService.instance.sanitizeText(content);
+      final pages = TextReaderService.instance.splitIntoPages(sanitizedContent);
+
+      // Calculate the starting page based on the book's progress
+      final startingPage = (widget.book.progress * pages.length).floor();
+
+      setState(() {
+        _pages = pages;
+        _currentPageIndex = startingPage.clamp(0, pages.length - 1);
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to load book content: ${e.toString()}';
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
-      body: GestureDetector(
-        onTap: _toggleToolbar,
-        onHorizontalDragEnd: (details) {
-          if (details.primaryVelocity! > 0) {
-            _previousPage();
-          } else if (details.primaryVelocity! < 0) {
-            _nextPage();
-          }
-        },
-        child: Stack(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage.isNotEmpty
+          ? _buildErrorView()
+          : GestureDetector(
+              onTap: _toggleToolbar,
+              onHorizontalDragEnd: (details) {
+                if (details.primaryVelocity! > 0) {
+                  _previousPage();
+                } else if (details.primaryVelocity! < 0) {
+                  _nextPage();
+                }
+              },
+              child: Stack(
+                children: [
+                  // Reading content
+                  _buildReadingContent(),
+
+                  // Top toolbar
+                  if (_showToolbar) _buildTopToolbar(),
+
+                  // Bottom control bar
+                  if (_showToolbar) _buildBottomControlBar(),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildErrorView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Reading content
-            _buildReadingContent(),
-
-            // Top toolbar
-            if (_showToolbar) _buildTopToolbar(),
-
-            // Bottom control bar
-            if (_showToolbar) _buildBottomControlBar(),
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Unable to Load Book',
+              style: Theme.of(context).textTheme.headlineSmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage,
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _loadBookContent,
+              child: const Text('Retry'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Go Back'),
+            ),
           ],
         ),
       ),
@@ -62,6 +138,10 @@ The bolded letters act as anchors for your eyes, making it easier to scan throug
   }
 
   Widget _buildReadingContent() {
+    if (_pages.isEmpty) {
+      return const Center(child: Text('No content available'));
+    }
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 80, 24, 100),
@@ -71,22 +151,30 @@ The bolded letters act as anchors for your eyes, making it easier to scan throug
             children: [
               // Book title and author
               Text(
-                widget.bookTitle,
+                widget.book.title,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'by ${widget.bookAuthor}',
+                'by ${widget.book.author}',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Page indicator
+              Text(
+                'Page ${_currentPageIndex + 1} of ${_pages.length}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 32),
 
               // Bionic reading text
-              _buildBionicText(_sampleText),
+              _buildBionicText(_pages[_currentPageIndex]),
             ],
           ),
         ),
@@ -95,55 +183,166 @@ The bolded letters act as anchors for your eyes, making it easier to scan throug
   }
 
   Widget _buildBionicText(String text) {
-    final words = text.split(' ');
-    final spans = <TextSpan>[];
+    // Preserve original formatting by not trimming paragraphs
+    final paragraphs = text.split('\n');
+    final paragraphSpans = <InlineSpan>[];
 
-    for (int i = 0; i < words.length; i++) {
-      final word = words[i];
-      if (word.isEmpty) {
-        spans.add(const TextSpan(text: ' '));
+    for (int p = 0; p < paragraphs.length; p++) {
+      final paragraph = paragraphs[p];
+
+      if (paragraph.isEmpty) {
+        // Add line break for empty paragraphs
+        paragraphSpans.add(const TextSpan(text: '\n'));
         continue;
       }
 
-      // Bold the first few letters (approximately 40% of the word)
-      final boldLength = (word.length * 0.4).ceil();
-      final boldPart = word.substring(0, boldLength);
-      final regularPart = word.substring(boldLength);
+      // Use a more precise regex to split while preserving all whitespace
+      final parts = <String>[];
+      final pattern = RegExp(r'(\S+|\s+)');
+      final matches = pattern.allMatches(paragraph);
+      
+      for (final match in matches) {
+        parts.add(match.group(0)!);
+      }
 
-      spans.add(
-        TextSpan(
-          text: boldPart,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: _fontSize,
-            height: _lineHeight,
-          ),
-        ),
-      );
+      final wordSpans = <TextSpan>[];
 
-      if (regularPart.isNotEmpty) {
-        spans.add(
+      for (final part in parts) {
+        // Check if this part is whitespace (including tabs, multiple spaces, etc.)
+        if (RegExp(r'^\s+$').hasMatch(part)) {
+          // Preserve all whitespace exactly as is
+          wordSpans.add(
+            TextSpan(
+              text: part,
+              style: TextStyle(
+                fontWeight: FontWeight.w400,
+                fontSize: _fontSize,
+                height: _lineHeight,
+              ),
+            ),
+          );
+          continue;
+        }
+
+        if (part.isEmpty) continue;
+
+        // Extract punctuation and special characters from actual words
+        final match = RegExp(r'^(\W*)(\w+)(\W*)$').firstMatch(part);
+        if (match == null) {
+          // If no word characters found, treat as punctuation/special chars
+          wordSpans.add(
+            TextSpan(
+              text: part,
+              style: TextStyle(
+                fontWeight: FontWeight.w400,
+                fontSize: _fontSize,
+                height: _lineHeight,
+              ),
+            ),
+          );
+          continue;
+        }
+
+        final prefix = match.group(1) ?? '';
+        final coreWord = match.group(2) ?? '';
+        final suffix = match.group(3) ?? '';
+
+        if (coreWord.isEmpty) {
+          wordSpans.add(
+            TextSpan(
+              text: part,
+              style: TextStyle(
+                fontWeight: FontWeight.w400,
+                fontSize: _fontSize,
+                height: _lineHeight,
+              ),
+            ),
+          );
+          continue;
+        }
+
+        // Calculate bold length based on word length with improved algorithm
+        int boldLength;
+        if (coreWord.length <= 1) {
+          boldLength = 1;
+        } else if (coreWord.length <= 3) {
+          boldLength = 1;
+        } else if (coreWord.length <= 6) {
+          boldLength = (coreWord.length * 0.5).ceil();
+        } else {
+          boldLength = (coreWord.length * 0.4).ceil();
+        }
+
+        final boldPart = coreWord.substring(0, boldLength);
+        final regularPart = coreWord.substring(boldLength);
+
+        // Add prefix (punctuation)
+        if (prefix.isNotEmpty) {
+          wordSpans.add(
+            TextSpan(
+              text: prefix,
+              style: TextStyle(
+                fontWeight: FontWeight.w400,
+                fontSize: _fontSize,
+                height: _lineHeight,
+              ),
+            ),
+          );
+        }
+
+        // Add bold part
+        wordSpans.add(
           TextSpan(
-            text: regularPart,
+            text: boldPart,
             style: TextStyle(
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w700,
               fontSize: _fontSize,
               height: _lineHeight,
             ),
           ),
         );
+
+        // Add regular part
+        if (regularPart.isNotEmpty) {
+          wordSpans.add(
+            TextSpan(
+              text: regularPart,
+              style: TextStyle(
+                fontWeight: FontWeight.w400,
+                fontSize: _fontSize,
+                height: _lineHeight,
+              ),
+            ),
+          );
+        }
+
+        // Add suffix (punctuation)
+        if (suffix.isNotEmpty) {
+          wordSpans.add(
+            TextSpan(
+              text: suffix,
+              style: TextStyle(
+                fontWeight: FontWeight.w400,
+                fontSize: _fontSize,
+                height: _lineHeight,
+              ),
+            ),
+          );
+        }
       }
 
-      // Add space between words
-      if (i < words.length - 1) {
-        spans.add(const TextSpan(text: ' '));
+      paragraphSpans.add(TextSpan(children: wordSpans));
+
+      // Add paragraph break except for the last paragraph
+      if (p < paragraphs.length - 1) {
+        paragraphSpans.add(const TextSpan(text: '\n'));
       }
     }
 
     return RichText(
       text: TextSpan(
-        children: spans,
-        style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+        children: paragraphSpans,
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       ),
     );
   }
@@ -155,10 +354,10 @@ The bolded letters act as anchors for your eyes, making it easier to scan throug
       right: 0,
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface.withOpacity(0.95),
+          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -178,7 +377,7 @@ The bolded letters act as anchors for your eyes, making it easier to scan throug
                   child: Column(
                     children: [
                       Text(
-                        widget.bookTitle,
+                        widget.book.title,
                         style: Theme.of(context).textTheme.titleMedium,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -215,10 +414,10 @@ The bolded letters act as anchors for your eyes, making it easier to scan throug
       right: 0,
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface.withOpacity(0.95),
+          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, -2),
             ),
@@ -300,15 +499,26 @@ The bolded letters act as anchors for your eyes, making it easier to scan throug
   }
 
   void _previousPage() {
-    setState(() {
-      _progress = (_progress - 0.05).clamp(0.0, 1.0);
-    });
+    if (_currentPageIndex > 0) {
+      setState(() {
+        _currentPageIndex--;
+      });
+      _saveProgress();
+    }
   }
 
   void _nextPage() {
-    setState(() {
-      _progress = (_progress + 0.05).clamp(0.0, 1.0);
-    });
+    if (_currentPageIndex < _pages.length - 1) {
+      setState(() {
+        _currentPageIndex++;
+      });
+      _saveProgress();
+    }
+  }
+
+  Future<void> _saveProgress() async {
+    final newProgress = _progress;
+    await BookService.instance.updateBookProgress(widget.book.id, newProgress);
   }
 
   void _showTableOfContents() {
@@ -326,14 +536,18 @@ The bolded letters act as anchors for your eyes, making it easier to scan throug
             ),
             const SizedBox(height: 16),
             Expanded(
-              child: ListView(
-                children: [
-                  _buildChapterItem('Chapter 1: Introduction', 0.0),
-                  _buildChapterItem('Chapter 2: Getting Started', 0.25),
-                  _buildChapterItem('Chapter 3: Core Concepts', 0.50),
-                  _buildChapterItem('Chapter 4: Advanced Techniques', 0.75),
-                  _buildChapterItem('Chapter 5: Conclusion', 1.0),
-                ],
+              child: ListView.builder(
+                itemCount: (_pages.length / 5)
+                    .ceil(), // Show every 5th page as a chapter
+                itemBuilder: (context, index) {
+                  final pageIndex = index * 5;
+                  final progress = pageIndex / _pages.length;
+                  return _buildChapterItem(
+                    'Page ${pageIndex + 1}',
+                    pageIndex,
+                    progress,
+                  );
+                },
               ),
             ),
           ],
@@ -342,14 +556,16 @@ The bolded letters act as anchors for your eyes, making it easier to scan throug
     );
   }
 
-  Widget _buildChapterItem(String title, double position) {
+  Widget _buildChapterItem(String title, int pageIndex, double position) {
     return ListTile(
       title: Text(title),
       trailing: Text('${(position * 100).toInt()}%'),
+      selected: pageIndex == _currentPageIndex,
       onTap: () {
         setState(() {
-          _progress = position;
+          _currentPageIndex = pageIndex.clamp(0, _pages.length - 1);
         });
+        _saveProgress();
         Navigator.of(context).pop();
       },
     );

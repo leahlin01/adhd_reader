@@ -26,14 +26,23 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _isLoading = true;
     });
-    
-    final books = await BookService.instance.getBooks();
-    books.sort((a, b) => b.importDate.compareTo(a.importDate));
-    
-    setState(() {
-      _recentBooks = books.take(3).toList();
-      _isLoading = false;
-    });
+
+    try {
+      // Use validated books to ensure all file paths are correct
+      final books = await BookService.instance.getValidatedBooks();
+      books.sort((a, b) => b.importDate.compareTo(a.importDate));
+
+      setState(() {
+        _recentBooks = books.take(3).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading recent books: $e');
+      setState(() {
+        _recentBooks = [];
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -105,47 +114,37 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 16),
         SizedBox(
           height: 200,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              _buildRecentBookCard(
-                context,
-                'The Power of Habit',
-                'Charles Duhigg',
-                0.75,
-              ),
-              const SizedBox(width: 16),
-              _buildRecentBookCard(
-                context,
-                'Atomic Habits',
-                'James Clear',
-                0.45,
-              ),
-              const SizedBox(width: 16),
-              _buildRecentBookCard(context, 'Deep Work', 'Cal Newport', 0.30),
-            ],
-          ),
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _recentBooks.isEmpty
+              ? const Center(
+                  child: Text(
+                    'No books yet. Add books from the Library tab.',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                )
+              : ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _recentBooks.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 16),
+                  itemBuilder: (context, index) {
+                    return _buildRecentBookCard(context, _recentBooks[index]);
+                  },
+                ),
         ),
       ],
     );
   }
 
-  Widget _buildRecentBookCard(
-    BuildContext context,
-    String title,
-    String author,
-    double progress,
-  ) {
+  Widget _buildRecentBookCard(BuildContext context, Book book) {
     return SizedBox(
       width: 140,
       child: Card(
         child: InkWell(
           onTap: () {
             Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) =>
-                    ReaderPage(bookTitle: title, bookAuthor: author),
-              ),
+              MaterialPageRoute(builder: (context) => ReaderPage(book: book)),
             );
           },
           borderRadius: BorderRadius.circular(12),
@@ -176,7 +175,7 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 8),
                 Flexible(
                   child: Text(
-                    title,
+                    book.title,
                     style: Theme.of(context).textTheme.titleSmall,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -184,14 +183,14 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  author,
+                  'by ${book.author}',
                   style: Theme.of(context).textTheme.bodySmall,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
                 LinearProgressIndicator(
-                  value: progress,
+                  value: book.progress,
                   backgroundColor: Theme.of(
                     context,
                   ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
@@ -201,7 +200,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${(progress * 100).toInt()}%',
+                  '${(book.progress * 100).toInt()}%',
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
@@ -231,17 +230,22 @@ class _HomePageState extends State<HomePage> {
         ),
         const SizedBox(height: 12),
         ActionButton(
-          text: 'Continue Reading',
-          icon: Icons.play_arrow,
+          text: _recentBooks.isEmpty ? 'Import Book' : 'Continue Reading',
+          icon: _recentBooks.isEmpty ? Icons.add : Icons.play_arrow,
           onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const ReaderPage(
-                  bookTitle: 'The Power of Habit',
-                  bookAuthor: 'Charles Duhigg',
+            if (_recentBooks.isEmpty) {
+              // Navigate to library page to import books
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const LibraryPage()),
+              );
+            } else {
+              // Continue reading the most recent book
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => ReaderPage(book: _recentBooks.first),
                 ),
-              ),
-            );
+              );
+            }
           },
           isPrimary: false,
         ),

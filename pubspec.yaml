@@ -46,6 +46,12 @@ dependencies:
   
   # MIME type detection
   mime: ^1.0.4
+  
+  # EPUB reader for parsing EPUB files
+  epubx: ^3.0.0
+  
+  # Archive for ZIP handling (EPUB files are ZIP archives)
+  archive: ^3.4.10
 
 dev_dependencies:
   flutter_test:
