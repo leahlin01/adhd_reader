@@ -42,7 +42,7 @@ class AppTheme {
         onBackground: lightPrimaryText,
       ),
       scaffoldBackgroundColor: lightPrimaryBackground,
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: lightCardBackground,
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -167,7 +167,7 @@ class AppTheme {
         onBackground: darkPrimaryText,
       ),
       scaffoldBackgroundColor: darkPrimaryBackground,
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: darkCardBackground,
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
