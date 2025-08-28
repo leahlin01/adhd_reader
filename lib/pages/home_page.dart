@@ -1,11 +1,40 @@
 import 'package:flutter/material.dart';
 import '../widgets/common_widgets.dart';
+import '../services/book_service.dart';
 import 'settings_page.dart';
 import 'library_page.dart';
 import 'reader_page.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  List<Book> _recentBooks = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentBooks();
+  }
+
+  Future<void> _loadRecentBooks() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    final books = await BookService.instance.getBooks();
+    books.sort((a, b) => b.importDate.compareTo(a.importDate));
+    
+    setState(() {
+      _recentBooks = books.take(3).toList();
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +136,7 @@ class HomePage extends StatelessWidget {
     String author,
     double progress,
   ) {
-    return Container(
+    return SizedBox(
       width: 140,
       child: Card(
         child: InkWell(
@@ -124,6 +153,7 @@ class HomePage extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 // Book cover
                 Container(
@@ -132,7 +162,7 @@ class HomePage extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Theme.of(
                       context,
-                    ).colorScheme.primary.withOpacity(0.1),
+                    ).colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Center(
@@ -143,31 +173,33 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleSmall,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                const SizedBox(height: 8),
+                Flexible(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleSmall,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   author,
                   style: Theme.of(context).textTheme.bodySmall,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 LinearProgressIndicator(
                   value: progress,
                   backgroundColor: Theme.of(
                     context,
-                  ).colorScheme.surfaceVariant.withOpacity(0.3),
+                  ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                   valueColor: AlwaysStoppedAnimation<Color>(
                     Theme.of(context).colorScheme.primary,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   '${(progress * 100).toInt()}%',
                   style: Theme.of(

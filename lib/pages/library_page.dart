@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/common_widgets.dart' hide SearchBar;
+import '../services/book_service.dart';
 import 'reader_page.dart';
 
 class LibraryPage extends StatefulWidget {
@@ -12,56 +13,29 @@ class LibraryPage extends StatefulWidget {
 class _LibraryPageState extends State<LibraryPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  List<Book> _books = [];
+  bool _isLoading = true;
 
-  // Mock data - in real app this would come from a database
-  final List<Map<String, dynamic>> _books = [
-    {
-      'title': 'The Power of Habit',
-      'author': 'Charles Duhigg',
-      'progress': 0.75,
-      'importDate': '2024-01-15',
-      'coverImage': null,
-    },
-    {
-      'title': 'Atomic Habits',
-      'author': 'James Clear',
-      'progress': 0.45,
-      'importDate': '2024-01-10',
-      'coverImage': null,
-    },
-    {
-      'title': 'Deep Work',
-      'author': 'Cal Newport',
-      'progress': 0.30,
-      'importDate': '2024-01-05',
-      'coverImage': null,
-    },
-    {
-      'title': 'Getting Things Done',
-      'author': 'David Allen',
-      'progress': 0.90,
-      'importDate': '2023-12-20',
-      'coverImage': null,
-    },
-    {
-      'title': 'The 7 Habits of Highly Effective People',
-      'author': 'Stephen Covey',
-      'progress': 0.60,
-      'importDate': '2023-12-15',
-      'coverImage': null,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadBooks();
+  }
 
-  List<Map<String, dynamic>> get _filteredBooks {
-    if (_searchQuery.isEmpty) {
-      return _books;
-    }
-    return _books.where((book) {
-      final title = book['title'].toString().toLowerCase();
-      final author = book['author'].toString().toLowerCase();
-      final query = _searchQuery.toLowerCase();
-      return title.contains(query) || author.contains(query);
-    }).toList();
+  List<Book> get _filteredBooks {
+    return BookService.instance.searchBooks(_books, _searchQuery);
+  }
+
+  Future<void> _loadBooks() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    final books = await BookService.instance.getBooks();
+    setState(() {
+      _books = books;
+      _isLoading = false;
+    });
   }
 
   @override
@@ -115,28 +89,30 @@ class _LibraryPageState extends State<LibraryPage> {
 
           // Books list
           Expanded(
-            child: _filteredBooks.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _filteredBooks.length,
-                    itemBuilder: (context, index) {
-                      final book = _filteredBooks[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: BookCard(
-                          title: book['title'],
-                          author: book['author'],
-                          coverImage: book['coverImage'],
-                          progress: book['progress'],
-                          onTap: () => _openBook(book),
-                          onContinue: () => _continueReading(book),
-                          onSettings: () => _showBookSettings(book),
-                          onDelete: () => _deleteBook(book),
-                        ),
-                      );
-                    },
-                  ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredBooks.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _filteredBooks.length,
+                        itemBuilder: (context, index) {
+                          final book = _filteredBooks[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: BookCard(
+                              title: book.title,
+                              author: book.author,
+                              coverImage: book.coverImagePath,
+                              progress: book.progress,
+                              onTap: () => _openBook(book),
+                              onContinue: () => _continueReading(book),
+                              onSettings: () => _showBookSettings(book),
+                              onDelete: () => _deleteBook(book),
+                            ),
+                          );
+                        },
+                      ),
           ),
         ],
       ),
@@ -181,17 +157,12 @@ class _LibraryPageState extends State<LibraryPage> {
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Choose how you want to import your book:'),
+            Text('Choose a book file to import:'),
             SizedBox(height: 16),
             ListTile(
               leading: Icon(Icons.file_upload),
               title: Text('Upload File'),
               subtitle: Text('PDF, EPUB, TXT'),
-            ),
-            ListTile(
-              leading: Icon(Icons.link),
-              title: Text('Import from URL'),
-              subtitle: Text('Download from web'),
             ),
           ],
         ),
@@ -201,9 +172,9 @@ class _LibraryPageState extends State<LibraryPage> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
-              // Implement file upload
+              await _importBook();
             },
             child: const Text('Upload File'),
           ),
@@ -212,35 +183,64 @@ class _LibraryPageState extends State<LibraryPage> {
     );
   }
 
-  void _openBook(Map<String, dynamic> book) {
+  Future<void> _importBook() async {
+    try {
+      final book = await BookService.instance.importBook();
+      if (book != null) {
+        await _loadBooks();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Successfully imported "${book.title}"'),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to import book'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  void _openBook(Book book) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) =>
-            ReaderPage(bookTitle: book['title'], bookAuthor: book['author']),
+            ReaderPage(bookTitle: book.title, bookAuthor: book.author),
       ),
     );
   }
 
-  void _continueReading(Map<String, dynamic> book) {
+  void _continueReading(Book book) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) =>
-            ReaderPage(bookTitle: book['title'], bookAuthor: book['author']),
+            ReaderPage(bookTitle: book.title, bookAuthor: book.author),
       ),
     );
   }
 
-  void _showBookSettings(Map<String, dynamic> book) {
+  void _showBookSettings(Book book) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Book Settings'),
+        title: const Text('Book Settings'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Title: ${book['title']}'),
-            Text('Author: ${book['author']}'),
+            Text('Title: ${book.title}'),
+            Text('Author: ${book.author}'),
+            Text('File Type: ${book.fileType}'),
+            Text('File Size: ${(book.fileSize / 1024 / 1024).toStringAsFixed(1)} MB'),
+            Text('Import Date: ${book.importDate.toString().split(' ')[0]}'),
             const SizedBox(height: 16),
             const ListTile(
               leading: Icon(Icons.edit),
@@ -266,13 +266,13 @@ class _LibraryPageState extends State<LibraryPage> {
     );
   }
 
-  void _deleteBook(Map<String, dynamic> book) {
+  void _deleteBook(Book book) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Book'),
         content: Text(
-          'Are you sure you want to delete "${book['title']}"? This action cannot be undone.',
+          'Are you sure you want to delete "${book.title}"? This action cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -280,17 +280,19 @@ class _LibraryPageState extends State<LibraryPage> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _books.remove(book);
-              });
+            onPressed: () async {
+              final deletedTitle = book.title;
               Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('${book['title']} deleted'),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+              await BookService.instance.deleteBook(book.id);
+              await _loadBooks();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('"$deletedTitle" deleted'),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Delete'),
