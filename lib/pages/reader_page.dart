@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/book_service.dart';
 import '../services/text_reader_service.dart';
 
+enum ReadingMode { paging, scrolling }
+
 class ReaderPage extends StatefulWidget {
   final Book book;
 
@@ -17,20 +19,47 @@ class _ReaderPageState extends State<ReaderPage> {
   bool _showToolbar = true;
   bool _isBookmarked = false;
   bool _isLoading = true;
+  ReadingMode _readingMode = ReadingMode.paging;
 
   List<String> _pages = [];
   int _currentPageIndex = 0;
   String _errorMessage = '';
+  
+  // For scrolling mode
+  final ScrollController _scrollController = ScrollController();
+  String _fullText = '';
 
   double get _progress {
-    if (_pages.isEmpty) return 0.0;
-    return (_currentPageIndex + 1) / _pages.length;
+    if (_readingMode == ReadingMode.paging) {
+      if (_pages.isEmpty) return 0.0;
+      return (_currentPageIndex + 1) / _pages.length;
+    } else {
+      // For scrolling mode, calculate progress based on scroll position
+      if (!_scrollController.hasClients || _fullText.isEmpty) return 0.0;
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      if (maxScroll == 0) return 1.0;
+      return (_scrollController.offset / maxScroll).clamp(0.0, 1.0);
+    }
   }
 
   @override
   void initState() {
     super.initState();
     _loadBookContent();
+    _scrollController.addListener(_onScrollChanged);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScrollChanged() {
+    if (_readingMode == ReadingMode.scrolling) {
+      // Save progress periodically while scrolling
+      _saveProgress();
+    }
   }
 
   Future<void> _loadBookContent() async {
@@ -47,6 +76,9 @@ class _ReaderPageState extends State<ReaderPage> {
 
       final sanitizedContent = TextReaderService.instance.sanitizeText(content);
       final pages = TextReaderService.instance.splitIntoPages(sanitizedContent);
+
+      // Store full text for scrolling mode
+      _fullText = sanitizedContent;
 
       // Calculate the starting page based on the book's progress
       final startingPage = (widget.book.progress * pages.length).floor();
@@ -72,28 +104,9 @@ class _ReaderPageState extends State<ReaderPage> {
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage.isNotEmpty
           ? _buildErrorView()
-          : GestureDetector(
-              onTap: _toggleToolbar,
-              onHorizontalDragEnd: (details) {
-                if (details.primaryVelocity! > 0) {
-                  _previousPage();
-                } else if (details.primaryVelocity! < 0) {
-                  _nextPage();
-                }
-              },
-              child: Stack(
-                children: [
-                  // Reading content
-                  _buildReadingContent(),
-
-                  // Top toolbar
-                  if (_showToolbar) _buildTopToolbar(),
-
-                  // Bottom control bar
-                  if (_showToolbar) _buildBottomControlBar(),
-                ],
-              ),
-            ),
+          : _readingMode == ReadingMode.paging
+          ? _buildPagingMode()
+          : _buildScrollingMode(),
     );
   }
 
@@ -137,7 +150,50 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
-  Widget _buildReadingContent() {
+  Widget _buildPagingMode() {
+    return GestureDetector(
+      onTap: _toggleToolbar,
+      onHorizontalDragEnd: (details) {
+        if (details.primaryVelocity! > 0) {
+          _previousPage();
+        } else if (details.primaryVelocity! < 0) {
+          _nextPage();
+        }
+      },
+      child: Stack(
+        children: [
+          // Reading content
+          _buildPagingContent(),
+
+          // Top toolbar
+          if (_showToolbar) _buildTopToolbar(),
+
+          // Bottom control bar
+          if (_showToolbar) _buildBottomControlBar(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScrollingMode() {
+    return GestureDetector(
+      onTap: _toggleToolbar,
+      child: Stack(
+        children: [
+          // Reading content
+          _buildScrollingContent(),
+
+          // Top toolbar
+          if (_showToolbar) _buildTopToolbar(),
+
+          // Bottom control bar
+          if (_showToolbar) _buildBottomControlBar(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPagingContent() {
     if (_pages.isEmpty) {
       return const Center(child: Text('No content available'));
     }
@@ -347,6 +403,54 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
+  Widget _buildScrollingContent() {
+    if (_fullText.isEmpty) {
+      return const Center(child: Text('No content available'));
+    }
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 80, 24, 100),
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Book title and author
+              Text(
+                widget.book.title,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'by ${widget.book.author}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Progress indicator
+              Text(
+                'Progress: ${(_progress * 100).toInt()}%',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Continuous bionic reading text
+              _buildBionicText(_fullText),
+              
+              const SizedBox(height: 100), // Extra padding at bottom
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTopToolbar() {
     return Positioned(
       top: 0,
@@ -449,16 +553,18 @@ class _ReaderPageState extends State<ReaderPage> {
                   icon: const Icon(Icons.text_increase),
                   tooltip: 'Increase Font Size',
                 ),
-                IconButton(
-                  onPressed: _previousPage,
-                  icon: const Icon(Icons.chevron_left),
-                  tooltip: 'Previous Page',
-                ),
-                IconButton(
-                  onPressed: _nextPage,
-                  icon: const Icon(Icons.chevron_right),
-                  tooltip: 'Next Page',
-                ),
+                if (_readingMode == ReadingMode.paging) ...[
+                  IconButton(
+                    onPressed: _previousPage,
+                    icon: const Icon(Icons.chevron_left),
+                    tooltip: 'Previous Page',
+                  ),
+                  IconButton(
+                    onPressed: _nextPage,
+                    icon: const Icon(Icons.chevron_right),
+                    tooltip: 'Next Page',
+                  ),
+                ],
               ],
             ),
           ),
@@ -619,6 +725,19 @@ class _ReaderPageState extends State<ReaderPage> {
                     icon: const Icon(Icons.add),
                   ),
                 ],
+              ),
+            ),
+            ListTile(
+              title: const Text('Reading Mode'),
+              subtitle: Text(_readingMode == ReadingMode.paging ? 'Page by Page' : 'Continuous Scrolling'),
+              trailing: Switch(
+                value: _readingMode == ReadingMode.scrolling,
+                onChanged: (value) {
+                  setState(() {
+                    _readingMode = value ? ReadingMode.scrolling : ReadingMode.paging;
+                  });
+                  Navigator.of(context).pop(); // Close dialog to show the change
+                },
               ),
             ),
           ],
