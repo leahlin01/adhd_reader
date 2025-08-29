@@ -3,7 +3,7 @@ import 'package:flutter_html/flutter_html.dart';
 import '../services/book_service.dart';
 import '../services/text_reader_service.dart';
 
-enum ReadingMode { paging, scrolling }
+// 移除阅读模式枚举，只支持滚动阅读
 enum TextDisplayMode { bionic, html, plain }
 
 class Bookmark {
@@ -40,7 +40,7 @@ class _ReaderPageState extends State<ReaderPage> {
   double _fontSize = 18.0;
   double _lineHeight = 1.6;
   bool _showToolbar = true;
-  ReadingMode _readingMode = ReadingMode.paging;
+  // 移除阅读模式变量，只支持滚动阅读
   TextDisplayMode _textDisplayMode = TextDisplayMode.bionic;
 
   // Content state
@@ -49,9 +49,7 @@ class _ReaderPageState extends State<ReaderPage> {
   String _errorMessage = '';
   bool _isLoading = true;
 
-  // Paging mode
-  List<String> _pages = [];
-  int _currentPageIndex = 0;
+  // 移除分页模式相关变量
 
   // Scrolling mode
   final ScrollController _scrollController = ScrollController();
@@ -61,13 +59,8 @@ class _ReaderPageState extends State<ReaderPage> {
   bool _isCurrentPositionBookmarked = false;
 
   double get _progress {
-    if (_readingMode == ReadingMode.paging) {
-      if (_pages.isEmpty) return 0.0;
-      return (_currentPageIndex + 1) / _pages.length;
-    } else {
-      if (_chapters.isEmpty) return 0.0;
-      return (_currentChapterIndex + 1) / _chapters.length;
-    }
+    if (_chapters.isEmpty) return 0.0;
+    return (_currentChapterIndex + 1) / _chapters.length;
   }
 
   @override
@@ -85,10 +78,8 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   void _onScrollChanged() {
-    if (_readingMode == ReadingMode.scrolling) {
-      _saveProgress();
-      _updateBookmarkStatus();
-    }
+    _saveProgress();
+    _updateBookmarkStatus();
   }
 
   Future<void> _loadBookContent() async {
@@ -108,16 +99,9 @@ class _ReaderPageState extends State<ReaderPage> {
         _isLoading = false;
       });
 
-      await _generatePages();
-
       // Calculate starting position based on book progress
-      if (_readingMode == ReadingMode.paging) {
-        final startingPage = (widget.book.progress * _pages.length).floor();
-        _currentPageIndex = startingPage.clamp(0, _pages.length - 1);
-      } else {
-        final startingChapter = (widget.book.progress * chapters.length).floor();
-        _currentChapterIndex = startingChapter.clamp(0, chapters.length - 1);
-      }
+      final startingChapter = (widget.book.progress * chapters.length).floor();
+      _currentChapterIndex = startingChapter.clamp(0, chapters.length - 1);
 
       _updateBookmarkStatus();
     } catch (e) {
@@ -138,8 +122,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
   void _updateBookmarkStatus() {
     final isBookmarked = _bookmarks.any((bookmark) =>
-        bookmark.chapterIndex == _currentChapterIndex &&
-        bookmark.pageIndex == _currentPageIndex);
+        bookmark.chapterIndex == _currentChapterIndex);
     
     if (_isCurrentPositionBookmarked != isBookmarked) {
       setState(() {
@@ -156,8 +139,6 @@ class _ReaderPageState extends State<ReaderPage> {
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage.isNotEmpty
           ? _buildErrorView()
-          : _readingMode == ReadingMode.paging
-          ? _buildPagingMode()
           : _buildScrollingMode(),
     );
   }
@@ -202,27 +183,7 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
-  Widget _buildPagingMode() {
-    return GestureDetector(
-      onTap: _toggleToolbar,
-      onHorizontalDragEnd: (details) {
-        if (details.primaryVelocity != null) {
-          if (details.primaryVelocity! > 0) {
-            _previousPage();
-          } else if (details.primaryVelocity! < 0) {
-            _nextPage();
-          }
-        }
-      },
-      child: Stack(
-        children: [
-          _buildPagingContent(),
-          if (_showToolbar) _buildTopToolbar(),
-          if (_showToolbar) _buildBottomControlBar(),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildScrollingMode() {
     return GestureDetector(
@@ -246,65 +207,7 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
-  Widget _buildPagingContent() {
-    if (_pages.isEmpty) {
-      return const Center(child: Text('No content available'));
-    }
 
-    final currentPage = _pages[_currentPageIndex];
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 80, 24, 100),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.book.title,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Page ${_currentPageIndex + 1} of ${_pages.length}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: SingleChildScrollView(
-                child: _buildTextContent(currentPage, _currentPageIndex),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '${_currentPageIndex + 1}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    ' / ${_pages.length}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildScrollingContent() {
     if (_chapters.isEmpty) {
@@ -677,29 +580,16 @@ class _ReaderPageState extends State<ReaderPage> {
                   icon: const Icon(Icons.text_increase),
                   tooltip: 'Increase Font Size',
                 ),
-                if (_readingMode == ReadingMode.paging) ...[
-                  IconButton(
-                    onPressed: _previousPage,
-                    icon: const Icon(Icons.chevron_left),
-                    tooltip: 'Previous Page',
-                  ),
-                  IconButton(
-                    onPressed: _nextPage,
-                    icon: const Icon(Icons.chevron_right),
-                    tooltip: 'Next Page',
-                  ),
-                ] else ...[
-                  IconButton(
-                    onPressed: _previousChapter,
-                    icon: const Icon(Icons.chevron_left),
-                    tooltip: 'Previous Chapter',
-                  ),
-                  IconButton(
-                    onPressed: _nextChapter,
-                    icon: const Icon(Icons.chevron_right),
-                    tooltip: 'Next Chapter',
-                  ),
-                ],
+                IconButton(
+                  onPressed: _previousChapter,
+                  icon: const Icon(Icons.chevron_left),
+                  tooltip: 'Previous Chapter',
+                ),
+                IconButton(
+                  onPressed: _nextChapter,
+                  icon: const Icon(Icons.chevron_right),
+                  tooltip: 'Next Chapter',
+                ),
               ],
             ),
           ),
@@ -708,49 +598,7 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
-  Future<void> _generatePages() async {
-    if (_chapters.isEmpty) return;
-
-    final screenSize = MediaQuery.of(context).size;
-    final availableHeight = screenSize.height - 200;
-    final availableWidth = screenSize.width - 48;
-
-    final charsPerLine = (availableWidth / (_fontSize * 0.6)).floor();
-    final linesPerPage = (availableHeight / (_fontSize * _lineHeight)).floor();
-    final charsPerPage = charsPerLine * linesPerPage;
-
-    final List<String> pages = [];
-
-    for (final chapter in _chapters) {
-      final chapterText = '${chapter.title}\n\n${chapter.content}';
-      final words = chapterText.split(' ');
-
-      String currentPage = '';
-      int currentPageChars = 0;
-
-      for (final word in words) {
-        final wordWithSpace = '$word ';
-
-        if (currentPageChars + wordWithSpace.length > charsPerPage &&
-            currentPage.isNotEmpty) {
-          pages.add(currentPage.trim());
-          currentPage = wordWithSpace;
-          currentPageChars = wordWithSpace.length;
-        } else {
-          currentPage += wordWithSpace;
-          currentPageChars += wordWithSpace.length;
-        }
-      }
-
-      if (currentPage.trim().isNotEmpty) {
-        pages.add(currentPage.trim());
-      }
-    }
-
-    setState(() {
-      _pages = pages;
-    });
-  }
+  // 移除分页生成方法
 
   void _toggleToolbar() {
     setState(() {
@@ -771,7 +619,7 @@ class _ReaderPageState extends State<ReaderPage> {
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       bookId: widget.book.id,
       chapterIndex: _currentChapterIndex,
-      pageIndex: _currentPageIndex,
+      pageIndex: 0, // 滚动模式下不需要页面索引
       title: _chapters.isNotEmpty ? _chapters[_currentChapterIndex].title : 'Bookmark',
       preview: _getBookmarkPreview(),
       createdAt: DateTime.now(),
@@ -792,8 +640,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
   void _removeBookmark() {
     _bookmarks.removeWhere((bookmark) =>
-        bookmark.chapterIndex == _currentChapterIndex &&
-        bookmark.pageIndex == _currentPageIndex);
+        bookmark.chapterIndex == _currentChapterIndex);
 
     setState(() {
       _isCurrentPositionBookmarked = false;
@@ -808,10 +655,7 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   String _getBookmarkPreview() {
-    if (_readingMode == ReadingMode.paging && _pages.isNotEmpty) {
-      final content = _pages[_currentPageIndex];
-      return content.length > 100 ? '${content.substring(0, 100)}...' : content;
-    } else if (_chapters.isNotEmpty) {
+    if (_chapters.isNotEmpty) {
       final content = _chapters[_currentChapterIndex].content;
       return content.length > 100 ? '${content.substring(0, 100)}...' : content;
     }
@@ -822,51 +666,15 @@ class _ReaderPageState extends State<ReaderPage> {
     setState(() {
       _fontSize = (_fontSize - 1).clamp(14.0, 24.0);
     });
-
-    if (_readingMode == ReadingMode.paging) {
-      _generatePages();
-    }
   }
 
   void _increaseFontSize() {
     setState(() {
       _fontSize = (_fontSize + 1).clamp(14.0, 24.0);
     });
-
-    if (_readingMode == ReadingMode.paging) {
-      _generatePages();
-    }
   }
 
-  void _previousPage() {
-    if (_readingMode == ReadingMode.paging) {
-      if (_currentPageIndex > 0) {
-        setState(() {
-          _currentPageIndex--;
-        });
-        _saveProgress();
-        _updateBookmarkStatus();
-        _showPageChangeSnackBar('Previous page', Icons.chevron_left);
-      }
-    } else {
-      _previousChapter();
-    }
-  }
-
-  void _nextPage() {
-    if (_readingMode == ReadingMode.paging) {
-      if (_currentPageIndex < _pages.length - 1) {
-        setState(() {
-          _currentPageIndex++;
-        });
-        _saveProgress();
-        _updateBookmarkStatus();
-        _showPageChangeSnackBar('Next page', Icons.chevron_right);
-      }
-    } else {
-      _nextChapter();
-    }
-  }
+  // 移除分页相关方法
 
   void _previousChapter() {
     if (_currentChapterIndex > 0) {
@@ -877,13 +685,11 @@ class _ReaderPageState extends State<ReaderPage> {
       _updateBookmarkStatus();
       _showPageChangeSnackBar('Previous chapter', Icons.chevron_left);
 
-      if (_readingMode == ReadingMode.scrolling) {
-        _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
   }
 
@@ -896,13 +702,11 @@ class _ReaderPageState extends State<ReaderPage> {
       _updateBookmarkStatus();
       _showPageChangeSnackBar('Next chapter', Icons.chevron_right);
 
-      if (_readingMode == ReadingMode.scrolling) {
-        _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
   }
 
@@ -1043,7 +847,6 @@ class _ReaderPageState extends State<ReaderPage> {
       onTap: () {
         setState(() {
           _currentChapterIndex = bookmark.chapterIndex;
-          _currentPageIndex = bookmark.pageIndex;
         });
         _saveProgress();
         _updateBookmarkStatus();
@@ -1135,36 +938,7 @@ class _ReaderPageState extends State<ReaderPage> {
                   ],
                 ),
               ),
-              ListTile(
-                title: const Text('Reading Mode'),
-                subtitle: Text(
-                  _readingMode == ReadingMode.paging
-                      ? 'Page by Page'
-                      : 'Continuous Scrolling',
-                ),
-                trailing: Switch(
-                  value: _readingMode == ReadingMode.scrolling,
-                  onChanged: (value) async {
-                    final newMode = value
-                        ? ReadingMode.scrolling
-                        : ReadingMode.paging;
-                    setState(() {
-                      _readingMode = newMode;
-                    });
 
-                    if (newMode == ReadingMode.paging) {
-                      await _generatePages();
-                      setState(() {
-                        _currentPageIndex = 0;
-                      });
-                    }
-
-                    if (mounted && context.mounted) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                ),
-              ),
             ],
           ),
         ),
