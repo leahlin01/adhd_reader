@@ -1,5 +1,5 @@
 name: adhd_reader
-description: "A new Flutter project."
+description: 'A new Flutter project.'
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -30,28 +30,17 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  
-  # File picker for upload functionality
-  file_picker: ^8.0.0+1
-  
-  # Path provider for local storage
-  path_provider: ^2.1.2
-  
-  # Shared preferences for storing metadata
-  shared_preferences: ^2.2.2
-  
-  # MIME type detection
-  mime: ^1.0.4
-  
-  # EPUB reader for parsing EPUB files
   epubx: ^3.0.0
-  
-  # Archive for ZIP handling (EPUB files are ZIP archives)
+  html: ^0.15.4
+  path_provider: ^2.1.2
+  permission_handler: ^11.0.1
+  file_picker: ^8.0.0+1
+  shared_preferences: ^2.2.2
+  mime: ^1.0.4
   archive: ^3.4.10
+  flutter_html: ^3.0.0-beta.2
+  flutter_epub_viewer: ^1.0.0
 
 dev_dependencies:
   flutter_test:
@@ -69,7 +58,6 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.

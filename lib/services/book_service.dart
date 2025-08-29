@@ -213,6 +213,7 @@ class BookService {
       debugPrint(
         'File type detected: $fileType (extension: $fileExtension, mime: $mimeType)',
       );
+      debugPrint('Original filename: ${file.name}');
 
       final book = Book(
         id: bookId,

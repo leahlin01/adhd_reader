@@ -1,8 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 import '../services/book_service.dart';
 import '../services/text_reader_service.dart';
 
 enum ReadingMode { paging, scrolling }
+enum TextDisplayMode { bionic, html, plain }
+
+class Bookmark {
+  final String id;
+  final String bookId;
+  final int chapterIndex;
+  final int pageIndex;
+  final String title;
+  final String preview;
+  final DateTime createdAt;
+
+  Bookmark({
+    required this.id,
+    required this.bookId,
+    required this.chapterIndex,
+    required this.pageIndex,
+    required this.title,
+    required this.preview,
+    required this.createdAt,
+  });
+}
 
 class ReaderPage extends StatefulWidget {
   final Book book;
@@ -14,31 +36,37 @@ class ReaderPage extends StatefulWidget {
 }
 
 class _ReaderPageState extends State<ReaderPage> {
+  // Reader settings
   double _fontSize = 18.0;
   double _lineHeight = 1.6;
   bool _showToolbar = true;
-  bool _isBookmarked = false;
-  bool _isLoading = true;
   ReadingMode _readingMode = ReadingMode.paging;
+  TextDisplayMode _textDisplayMode = TextDisplayMode.bionic;
 
+  // Content state
+  List<Chapter> _chapters = [];
+  int _currentChapterIndex = 0;
+  String _errorMessage = '';
+  bool _isLoading = true;
+
+  // Paging mode
   List<String> _pages = [];
   int _currentPageIndex = 0;
-  String _errorMessage = '';
-  
-  // For scrolling mode
+
+  // Scrolling mode
   final ScrollController _scrollController = ScrollController();
-  String _fullText = '';
+
+  // Bookmarks
+  List<Bookmark> _bookmarks = [];
+  bool _isCurrentPositionBookmarked = false;
 
   double get _progress {
     if (_readingMode == ReadingMode.paging) {
       if (_pages.isEmpty) return 0.0;
       return (_currentPageIndex + 1) / _pages.length;
     } else {
-      // For scrolling mode, calculate progress based on scroll position
-      if (!_scrollController.hasClients || _fullText.isEmpty) return 0.0;
-      final maxScroll = _scrollController.position.maxScrollExtent;
-      if (maxScroll == 0) return 1.0;
-      return (_scrollController.offset / maxScroll).clamp(0.0, 1.0);
+      if (_chapters.isEmpty) return 0.0;
+      return (_currentChapterIndex + 1) / _chapters.length;
     }
   }
 
@@ -46,6 +74,7 @@ class _ReaderPageState extends State<ReaderPage> {
   void initState() {
     super.initState();
     _loadBookContent();
+    _loadBookmarks();
     _scrollController.addListener(_onScrollChanged);
   }
 
@@ -57,8 +86,8 @@ class _ReaderPageState extends State<ReaderPage> {
 
   void _onScrollChanged() {
     if (_readingMode == ReadingMode.scrolling) {
-      // Save progress periodically while scrolling
       _saveProgress();
+      _updateBookmarkStatus();
     }
   }
 
@@ -69,29 +98,52 @@ class _ReaderPageState extends State<ReaderPage> {
     });
 
     try {
-      final content = await TextReaderService.instance.readBookContent(
+      final chapters = await TextReaderService.instance.readBookChapters(
         widget.book.filePath,
         widget.book.fileType,
       );
 
-      final sanitizedContent = TextReaderService.instance.sanitizeText(content);
-      final pages = TextReaderService.instance.splitIntoPages(sanitizedContent);
-
-      // Store full text for scrolling mode
-      _fullText = sanitizedContent;
-
-      // Calculate the starting page based on the book's progress
-      final startingPage = (widget.book.progress * pages.length).floor();
-
       setState(() {
-        _pages = pages;
-        _currentPageIndex = startingPage.clamp(0, pages.length - 1);
+        _chapters = chapters;
         _isLoading = false;
       });
+
+      await _generatePages();
+
+      // Calculate starting position based on book progress
+      if (_readingMode == ReadingMode.paging) {
+        final startingPage = (widget.book.progress * _pages.length).floor();
+        _currentPageIndex = startingPage.clamp(0, _pages.length - 1);
+      } else {
+        final startingChapter = (widget.book.progress * chapters.length).floor();
+        _currentChapterIndex = startingChapter.clamp(0, chapters.length - 1);
+      }
+
+      _updateBookmarkStatus();
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to load book content: ${e.toString()}';
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadBookmarks() async {
+    // TODO: Implement bookmark loading from storage
+    // For now, initialize empty list
+    setState(() {
+      _bookmarks = [];
+    });
+  }
+
+  void _updateBookmarkStatus() {
+    final isBookmarked = _bookmarks.any((bookmark) =>
+        bookmark.chapterIndex == _currentChapterIndex &&
+        bookmark.pageIndex == _currentPageIndex);
+    
+    if (_isCurrentPositionBookmarked != isBookmarked) {
+      setState(() {
+        _isCurrentPositionBookmarked = isBookmarked;
       });
     }
   }
@@ -154,21 +206,18 @@ class _ReaderPageState extends State<ReaderPage> {
     return GestureDetector(
       onTap: _toggleToolbar,
       onHorizontalDragEnd: (details) {
-        if (details.primaryVelocity! > 0) {
-          _previousPage();
-        } else if (details.primaryVelocity! < 0) {
-          _nextPage();
+        if (details.primaryVelocity != null) {
+          if (details.primaryVelocity! > 0) {
+            _previousPage();
+          } else if (details.primaryVelocity! < 0) {
+            _nextPage();
+          }
         }
       },
       child: Stack(
         children: [
-          // Reading content
           _buildPagingContent(),
-
-          // Top toolbar
           if (_showToolbar) _buildTopToolbar(),
-
-          // Bottom control bar
           if (_showToolbar) _buildBottomControlBar(),
         ],
       ),
@@ -178,15 +227,19 @@ class _ReaderPageState extends State<ReaderPage> {
   Widget _buildScrollingMode() {
     return GestureDetector(
       onTap: _toggleToolbar,
+      onHorizontalDragEnd: (details) {
+        if (details.primaryVelocity != null) {
+          if (details.primaryVelocity! > 0) {
+            _previousChapter();
+          } else if (details.primaryVelocity! < 0) {
+            _nextChapter();
+          }
+        }
+      },
       child: Stack(
         children: [
-          // Reading content
           _buildScrollingContent(),
-
-          // Top toolbar
           if (_showToolbar) _buildTopToolbar(),
-
-          // Bottom control bar
           if (_showToolbar) _buildBottomControlBar(),
         ],
       ),
@@ -198,215 +251,67 @@ class _ReaderPageState extends State<ReaderPage> {
       return const Center(child: Text('No content available'));
     }
 
+    final currentPage = _pages[_currentPageIndex];
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 80, 24, 100),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Book title and author
-              Text(
-                widget.book.title,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.book.title,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'by ${widget.book.author}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Page ${_currentPageIndex + 1} of ${_pages.length}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(height: 16),
-              // Page indicator
-              Text(
-                'Page ${_currentPageIndex + 1} of ${_pages.length}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+            ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: SingleChildScrollView(
+                child: _buildTextContent(currentPage, _currentPageIndex),
               ),
-              const SizedBox(height: 32),
-
-              // Bionic reading text
-              _buildBionicText(_pages[_currentPageIndex]),
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '${_currentPageIndex + 1}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    ' / ${_pages.length}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildBionicText(String text) {
-    // Preserve original formatting by not trimming paragraphs
-    final paragraphs = text.split('\n');
-    final paragraphSpans = <InlineSpan>[];
-
-    for (int p = 0; p < paragraphs.length; p++) {
-      final paragraph = paragraphs[p];
-
-      if (paragraph.isEmpty) {
-        // Add line break for empty paragraphs
-        paragraphSpans.add(const TextSpan(text: '\n'));
-        continue;
-      }
-
-      // Use a more precise regex to split while preserving all whitespace
-      final parts = <String>[];
-      final pattern = RegExp(r'(\S+|\s+)');
-      final matches = pattern.allMatches(paragraph);
-      
-      for (final match in matches) {
-        parts.add(match.group(0)!);
-      }
-
-      final wordSpans = <TextSpan>[];
-
-      for (final part in parts) {
-        // Check if this part is whitespace (including tabs, multiple spaces, etc.)
-        if (RegExp(r'^\s+$').hasMatch(part)) {
-          // Preserve all whitespace exactly as is
-          wordSpans.add(
-            TextSpan(
-              text: part,
-              style: TextStyle(
-                fontWeight: FontWeight.w400,
-                fontSize: _fontSize,
-                height: _lineHeight,
-              ),
-            ),
-          );
-          continue;
-        }
-
-        if (part.isEmpty) continue;
-
-        // Extract punctuation and special characters from actual words
-        final match = RegExp(r'^(\W*)(\w+)(\W*)$').firstMatch(part);
-        if (match == null) {
-          // If no word characters found, treat as punctuation/special chars
-          wordSpans.add(
-            TextSpan(
-              text: part,
-              style: TextStyle(
-                fontWeight: FontWeight.w400,
-                fontSize: _fontSize,
-                height: _lineHeight,
-              ),
-            ),
-          );
-          continue;
-        }
-
-        final prefix = match.group(1) ?? '';
-        final coreWord = match.group(2) ?? '';
-        final suffix = match.group(3) ?? '';
-
-        if (coreWord.isEmpty) {
-          wordSpans.add(
-            TextSpan(
-              text: part,
-              style: TextStyle(
-                fontWeight: FontWeight.w400,
-                fontSize: _fontSize,
-                height: _lineHeight,
-              ),
-            ),
-          );
-          continue;
-        }
-
-        // Calculate bold length based on word length with improved algorithm
-        int boldLength;
-        if (coreWord.length <= 1) {
-          boldLength = 1;
-        } else if (coreWord.length <= 3) {
-          boldLength = 1;
-        } else if (coreWord.length <= 6) {
-          boldLength = (coreWord.length * 0.5).ceil();
-        } else {
-          boldLength = (coreWord.length * 0.4).ceil();
-        }
-
-        final boldPart = coreWord.substring(0, boldLength);
-        final regularPart = coreWord.substring(boldLength);
-
-        // Add prefix (punctuation)
-        if (prefix.isNotEmpty) {
-          wordSpans.add(
-            TextSpan(
-              text: prefix,
-              style: TextStyle(
-                fontWeight: FontWeight.w400,
-                fontSize: _fontSize,
-                height: _lineHeight,
-              ),
-            ),
-          );
-        }
-
-        // Add bold part
-        wordSpans.add(
-          TextSpan(
-            text: boldPart,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: _fontSize,
-              height: _lineHeight,
-            ),
-          ),
-        );
-
-        // Add regular part
-        if (regularPart.isNotEmpty) {
-          wordSpans.add(
-            TextSpan(
-              text: regularPart,
-              style: TextStyle(
-                fontWeight: FontWeight.w400,
-                fontSize: _fontSize,
-                height: _lineHeight,
-              ),
-            ),
-          );
-        }
-
-        // Add suffix (punctuation)
-        if (suffix.isNotEmpty) {
-          wordSpans.add(
-            TextSpan(
-              text: suffix,
-              style: TextStyle(
-                fontWeight: FontWeight.w400,
-                fontSize: _fontSize,
-                height: _lineHeight,
-              ),
-            ),
-          );
-        }
-      }
-
-      paragraphSpans.add(TextSpan(children: wordSpans));
-
-      // Add paragraph break except for the last paragraph
-      if (p < paragraphs.length - 1) {
-        paragraphSpans.add(const TextSpan(text: '\n'));
-      }
-    }
-
-    return RichText(
-      text: TextSpan(
-        children: paragraphSpans,
-        style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-      ),
-    );
-  }
-
   Widget _buildScrollingContent() {
-    if (_fullText.isEmpty) {
+    if (_chapters.isEmpty) {
       return const Center(child: Text('No content available'));
     }
+
+    final currentChapter = _chapters[_currentChapterIndex];
 
     return SafeArea(
       child: Padding(
@@ -416,7 +321,6 @@ class _ReaderPageState extends State<ReaderPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Book title and author
               Text(
                 widget.book.title,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -431,23 +335,238 @@ class _ReaderPageState extends State<ReaderPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              // Progress indicator
               Text(
-                'Progress: ${(_progress * 100).toInt()}%',
+                currentChapter.title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Chapter ${_currentChapterIndex + 1} of ${_chapters.length} • ${(_progress * 100).toInt()}% complete',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 32),
-
-              // Continuous bionic reading text
-              _buildBionicText(_fullText),
-              
-              const SizedBox(height: 100), // Extra padding at bottom
+              _buildTextContent(_chapters[_currentChapterIndex].content, _currentChapterIndex),
+              const SizedBox(height: 100),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTextContent(String content, int chapterIndex) {
+    switch (_textDisplayMode) {
+      case TextDisplayMode.html:
+        return _buildHtmlContent(chapterIndex);
+      case TextDisplayMode.plain:
+        return _buildPlainText(content);
+      case TextDisplayMode.bionic:
+      default:
+        return _buildBionicText(content);
+    }
+  }
+
+  Widget _buildHtmlContent(int chapterIndex) {
+    if (_chapters.isEmpty || chapterIndex >= _chapters.length) {
+      return const Text('No content available');
+    }
+
+    final chapter = _chapters[chapterIndex];
+    final htmlContent = chapter.htmlContent;
+
+    if (htmlContent == null || htmlContent.trim().isEmpty) {
+      return _buildBionicText(chapter.content);
+    }
+
+    return Html(
+      data: htmlContent,
+      style: {
+        "body": Style(
+          fontSize: FontSize(_fontSize),
+          lineHeight: LineHeight(_lineHeight),
+          color: Theme.of(context).colorScheme.onSurface,
+          fontFamily: 'Inter',
+        ),
+        "p": Style(
+          margin: Margins.only(bottom: 16),
+          textAlign: TextAlign.justify,
+        ),
+        "h1": Style(
+          fontSize: FontSize(_fontSize * 1.5),
+          fontWeight: FontWeight.bold,
+          margin: Margins.symmetric(vertical: 24),
+        ),
+        "h2": Style(
+          fontSize: FontSize(_fontSize * 1.3),
+          fontWeight: FontWeight.w600,
+          margin: Margins.symmetric(vertical: 20),
+        ),
+        "h3": Style(
+          fontSize: FontSize(_fontSize * 1.2),
+          fontWeight: FontWeight.w600,
+          margin: Margins.symmetric(vertical: 16),
+        ),
+        "strong": Style(fontWeight: FontWeight.bold),
+        "em": Style(fontStyle: FontStyle.italic),
+        "b": Style(fontWeight: FontWeight.bold),
+        "i": Style(fontStyle: FontStyle.italic),
+        "blockquote": Style(
+          margin: Margins.all(16),
+          padding: HtmlPaddings.all(16),
+          border: Border(
+            left: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
+              width: 4,
+            ),
+          ),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        ),
+      },
+    );
+  }
+
+  Widget _buildPlainText(String content) {
+    return Text(
+      content,
+      style: TextStyle(
+        fontSize: _fontSize,
+        height: _lineHeight,
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
+      textAlign: TextAlign.justify,
+    );
+  }
+
+  Widget _buildBionicText(String text) {
+    final paragraphs = text.split('\n\n').where((p) => p.trim().isNotEmpty).toList();
+    final paragraphWidgets = <Widget>[];
+
+    for (int p = 0; p < paragraphs.length; p++) {
+      final paragraph = paragraphs[p].trim();
+      if (paragraph.isEmpty) continue;
+
+      final sentences = _splitIntoSentences(paragraph);
+      final sentenceSpans = <InlineSpan>[];
+
+      for (int s = 0; s < sentences.length; s++) {
+        final sentence = sentences[s];
+        if (sentence.trim().isEmpty) continue;
+
+        final wordSpans = _processWordsForBionic(sentence);
+        sentenceSpans.addAll(wordSpans);
+
+        if (s < sentences.length - 1) {
+          sentenceSpans.add(TextSpan(
+            text: ' ',
+            style: _getTextStyle(false),
+          ));
+        }
+      }
+
+      paragraphWidgets.add(
+        Padding(
+          padding: EdgeInsets.only(bottom: p < paragraphs.length - 1 ? 16.0 : 0.0),
+          child: RichText(
+            text: TextSpan(
+              children: sentenceSpans,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            ),
+            textAlign: TextAlign.justify,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: paragraphWidgets,
+    );
+  }
+
+  List<String> _splitIntoSentences(String text) {
+    return text.split(RegExp(r'[.!?]+\s+')).where((s) => s.trim().isNotEmpty).toList();
+  }
+
+  List<InlineSpan> _processWordsForBionic(String sentence) {
+    final spans = <InlineSpan>[];
+    final pattern = RegExp(r"(\s+|[\w'\-]+|[^\w\s'\-]+)");
+    final matches = pattern.allMatches(sentence);
+
+    for (final match in matches) {
+      final part = match.group(0)!;
+      
+      if (RegExp(r'^\s+$').hasMatch(part)) {
+        spans.add(TextSpan(text: part, style: _getTextStyle(false)));
+        continue;
+      }
+
+      if (RegExp(r"\w").hasMatch(part)) {
+        spans.addAll(_createBionicWord(part));
+      } else {
+        spans.add(TextSpan(text: part, style: _getTextStyle(false)));
+      }
+    }
+
+    return spans;
+  }
+
+  List<InlineSpan> _createBionicWord(String word) {
+    final wordMatch = RegExp(r"([^\w]*)(\w+)([^\w]*)").firstMatch(word);
+    
+    if (wordMatch == null) {
+      return [TextSpan(text: word, style: _getTextStyle(false))];
+    }
+
+    final prefix = wordMatch.group(1) ?? '';
+    final coreWord = wordMatch.group(2) ?? '';
+    final suffix = wordMatch.group(3) ?? '';
+
+    if (coreWord.isEmpty) {
+      return [TextSpan(text: word, style: _getTextStyle(false))];
+    }
+
+    final spans = <InlineSpan>[];
+
+    if (prefix.isNotEmpty) {
+      spans.add(TextSpan(text: prefix, style: _getTextStyle(false)));
+    }
+
+    final boldLength = _calculateBoldLength(coreWord.length);
+    final boldPart = coreWord.substring(0, boldLength);
+    final regularPart = coreWord.substring(boldLength);
+
+    spans.add(TextSpan(text: boldPart, style: _getTextStyle(true)));
+
+    if (regularPart.isNotEmpty) {
+      spans.add(TextSpan(text: regularPart, style: _getTextStyle(false)));
+    }
+
+    if (suffix.isNotEmpty) {
+      spans.add(TextSpan(text: suffix, style: _getTextStyle(false)));
+    }
+
+    return spans;
+  }
+
+  int _calculateBoldLength(int wordLength) {
+    if (wordLength <= 1) return 1;
+    if (wordLength <= 2) return 1;
+    if (wordLength <= 4) return 2;
+    if (wordLength <= 6) return 3;
+    if (wordLength <= 8) return 3;
+    return (wordLength * 0.4).ceil().clamp(1, wordLength - 1);
+  }
+
+  TextStyle _getTextStyle(bool isBold) {
+    return TextStyle(
+      fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
+      fontSize: _fontSize,
+      height: _lineHeight,
     );
   }
 
@@ -499,6 +618,11 @@ class _ReaderPageState extends State<ReaderPage> {
                   tooltip: 'Table of Contents',
                 ),
                 IconButton(
+                  onPressed: _showBookmarks,
+                  icon: const Icon(Icons.bookmarks),
+                  tooltip: 'Bookmarks',
+                ),
+                IconButton(
                   onPressed: _showReaderSettings,
                   icon: const Icon(Icons.settings),
                   tooltip: 'Reader Settings',
@@ -536,8 +660,8 @@ class _ReaderPageState extends State<ReaderPage> {
                 IconButton(
                   onPressed: _toggleBookmark,
                   icon: Icon(
-                    _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                    color: _isBookmarked
+                    _isCurrentPositionBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                    color: _isCurrentPositionBookmarked
                         ? Theme.of(context).colorScheme.primary
                         : null,
                   ),
@@ -564,6 +688,17 @@ class _ReaderPageState extends State<ReaderPage> {
                     icon: const Icon(Icons.chevron_right),
                     tooltip: 'Next Page',
                   ),
+                ] else ...[
+                  IconButton(
+                    onPressed: _previousChapter,
+                    icon: const Icon(Icons.chevron_left),
+                    tooltip: 'Previous Chapter',
+                  ),
+                  IconButton(
+                    onPressed: _nextChapter,
+                    icon: const Icon(Icons.chevron_right),
+                    tooltip: 'Next Chapter',
+                  ),
                 ],
               ],
             ),
@@ -573,6 +708,50 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
+  Future<void> _generatePages() async {
+    if (_chapters.isEmpty) return;
+
+    final screenSize = MediaQuery.of(context).size;
+    final availableHeight = screenSize.height - 200;
+    final availableWidth = screenSize.width - 48;
+
+    final charsPerLine = (availableWidth / (_fontSize * 0.6)).floor();
+    final linesPerPage = (availableHeight / (_fontSize * _lineHeight)).floor();
+    final charsPerPage = charsPerLine * linesPerPage;
+
+    final List<String> pages = [];
+
+    for (final chapter in _chapters) {
+      final chapterText = '${chapter.title}\n\n${chapter.content}';
+      final words = chapterText.split(' ');
+
+      String currentPage = '';
+      int currentPageChars = 0;
+
+      for (final word in words) {
+        final wordWithSpace = '$word ';
+
+        if (currentPageChars + wordWithSpace.length > charsPerPage &&
+            currentPage.isNotEmpty) {
+          pages.add(currentPage.trim());
+          currentPage = wordWithSpace;
+          currentPageChars = wordWithSpace.length;
+        } else {
+          currentPage += wordWithSpace;
+          currentPageChars += wordWithSpace.length;
+        }
+      }
+
+      if (currentPage.trim().isNotEmpty) {
+        pages.add(currentPage.trim());
+      }
+    }
+
+    setState(() {
+      _pages = pages;
+    });
+  }
+
   void _toggleToolbar() {
     setState(() {
       _showToolbar = !_showToolbar;
@@ -580,46 +759,169 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   void _toggleBookmark() {
+    if (_isCurrentPositionBookmarked) {
+      _removeBookmark();
+    } else {
+      _addBookmark();
+    }
+  }
+
+  void _addBookmark() {
+    final bookmark = Bookmark(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      bookId: widget.book.id,
+      chapterIndex: _currentChapterIndex,
+      pageIndex: _currentPageIndex,
+      title: _chapters.isNotEmpty ? _chapters[_currentChapterIndex].title : 'Bookmark',
+      preview: _getBookmarkPreview(),
+      createdAt: DateTime.now(),
+    );
+
     setState(() {
-      _isBookmarked = !_isBookmarked;
+      _bookmarks.add(bookmark);
+      _isCurrentPositionBookmarked = true;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(_isBookmarked ? 'Bookmarked' : 'Bookmark removed'),
-        duration: const Duration(seconds: 1),
+      const SnackBar(
+        content: Text('Bookmark added'),
+        duration: Duration(seconds: 1),
       ),
     );
+  }
+
+  void _removeBookmark() {
+    _bookmarks.removeWhere((bookmark) =>
+        bookmark.chapterIndex == _currentChapterIndex &&
+        bookmark.pageIndex == _currentPageIndex);
+
+    setState(() {
+      _isCurrentPositionBookmarked = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Bookmark removed'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  String _getBookmarkPreview() {
+    if (_readingMode == ReadingMode.paging && _pages.isNotEmpty) {
+      final content = _pages[_currentPageIndex];
+      return content.length > 100 ? '${content.substring(0, 100)}...' : content;
+    } else if (_chapters.isNotEmpty) {
+      final content = _chapters[_currentChapterIndex].content;
+      return content.length > 100 ? '${content.substring(0, 100)}...' : content;
+    }
+    return '';
   }
 
   void _decreaseFontSize() {
     setState(() {
       _fontSize = (_fontSize - 1).clamp(14.0, 24.0);
     });
+
+    if (_readingMode == ReadingMode.paging) {
+      _generatePages();
+    }
   }
 
   void _increaseFontSize() {
     setState(() {
       _fontSize = (_fontSize + 1).clamp(14.0, 24.0);
     });
+
+    if (_readingMode == ReadingMode.paging) {
+      _generatePages();
+    }
   }
 
   void _previousPage() {
-    if (_currentPageIndex > 0) {
-      setState(() {
-        _currentPageIndex--;
-      });
-      _saveProgress();
+    if (_readingMode == ReadingMode.paging) {
+      if (_currentPageIndex > 0) {
+        setState(() {
+          _currentPageIndex--;
+        });
+        _saveProgress();
+        _updateBookmarkStatus();
+        _showPageChangeSnackBar('Previous page', Icons.chevron_left);
+      }
+    } else {
+      _previousChapter();
     }
   }
 
   void _nextPage() {
-    if (_currentPageIndex < _pages.length - 1) {
+    if (_readingMode == ReadingMode.paging) {
+      if (_currentPageIndex < _pages.length - 1) {
+        setState(() {
+          _currentPageIndex++;
+        });
+        _saveProgress();
+        _updateBookmarkStatus();
+        _showPageChangeSnackBar('Next page', Icons.chevron_right);
+      }
+    } else {
+      _nextChapter();
+    }
+  }
+
+  void _previousChapter() {
+    if (_currentChapterIndex > 0) {
       setState(() {
-        _currentPageIndex++;
+        _currentChapterIndex--;
       });
       _saveProgress();
+      _updateBookmarkStatus();
+      _showPageChangeSnackBar('Previous chapter', Icons.chevron_left);
+
+      if (_readingMode == ReadingMode.scrolling) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     }
+  }
+
+  void _nextChapter() {
+    if (_currentChapterIndex < _chapters.length - 1) {
+      setState(() {
+        _currentChapterIndex++;
+      });
+      _saveProgress();
+      _updateBookmarkStatus();
+      _showPageChangeSnackBar('Next chapter', Icons.chevron_right);
+
+      if (_readingMode == ReadingMode.scrolling) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    }
+  }
+
+  void _showPageChangeSnackBar(String message, IconData icon) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(message),
+          ],
+        ),
+        duration: const Duration(milliseconds: 800),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+      ),
+    );
   }
 
   Future<void> _saveProgress() async {
@@ -630,48 +932,121 @@ class _ReaderPageState extends State<ReaderPage> {
   void _showTableOfContents() {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Table of Contents',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView.builder(
-                itemCount: (_pages.length / 5)
-                    .ceil(), // Show every 5th page as a chapter
-                itemBuilder: (context, index) {
-                  final pageIndex = index * 5;
-                  final progress = pageIndex / _pages.length;
-                  return _buildChapterItem(
-                    'Page ${pageIndex + 1}',
-                    pageIndex,
-                    progress,
-                  );
-                },
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.9,
+        minChildSize: 0.3,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Table of Contents',
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  itemCount: _chapters.length,
+                  itemBuilder: (context, index) {
+                    final chapter = _chapters[index];
+                    final progress = (index + 1) / _chapters.length;
+                    return _buildChapterItem(chapter.title, index, progress);
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildChapterItem(String title, int pageIndex, double position) {
+  Widget _buildChapterItem(String title, int chapterIndex, double position) {
     return ListTile(
       title: Text(title),
       trailing: Text('${(position * 100).toInt()}%'),
-      selected: pageIndex == _currentPageIndex,
+      selected: chapterIndex == _currentChapterIndex,
       onTap: () {
         setState(() {
-          _currentPageIndex = pageIndex.clamp(0, _pages.length - 1);
+          _currentChapterIndex = chapterIndex.clamp(0, _chapters.length - 1);
         });
         _saveProgress();
+        _updateBookmarkStatus();
+        Navigator.of(context).pop();
+      },
+    );
+  }
+
+  void _showBookmarks() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.9,
+        minChildSize: 0.3,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Bookmarks',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 16),
+              if (_bookmarks.isEmpty)
+                const Expanded(
+                  child: Center(
+                    child: Text('No bookmarks yet'),
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    itemCount: _bookmarks.length,
+                    itemBuilder: (context, index) {
+                      final bookmark = _bookmarks[index];
+                      return _buildBookmarkItem(bookmark);
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBookmarkItem(Bookmark bookmark) {
+    return ListTile(
+      title: Text(bookmark.title),
+      subtitle: Text(
+        bookmark.preview,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.delete),
+        onPressed: () {
+          setState(() {
+            _bookmarks.remove(bookmark);
+            _updateBookmarkStatus();
+          });
+        },
+      ),
+      onTap: () {
+        setState(() {
+          _currentChapterIndex = bookmark.chapterIndex;
+          _currentPageIndex = bookmark.pageIndex;
+        });
+        _saveProgress();
+        _updateBookmarkStatus();
         Navigator.of(context).pop();
       },
     );
@@ -682,65 +1057,116 @@ class _ReaderPageState extends State<ReaderPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Reader Settings'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('Font Size'),
-              subtitle: Text('${_fontSize.toInt()}px'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    onPressed: _decreaseFontSize,
-                    icon: const Icon(Icons.remove),
-                  ),
-                  IconButton(
-                    onPressed: _increaseFontSize,
-                    icon: const Icon(Icons.add),
-                  ),
-                ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('Font Size'),
+                subtitle: Text('${_fontSize.toInt()}px'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: _decreaseFontSize,
+                      icon: const Icon(Icons.remove),
+                    ),
+                    IconButton(
+                      onPressed: _increaseFontSize,
+                      icon: const Icon(Icons.add),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            ListTile(
-              title: const Text('Line Height'),
-              subtitle: Text(_lineHeight.toString()),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    onPressed: () {
+              ListTile(
+                title: const Text('Line Height'),
+                subtitle: Text(_lineHeight.toString()),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          _lineHeight = (_lineHeight - 0.1).clamp(1.2, 2.0);
+                        });
+                      },
+                      icon: const Icon(Icons.remove),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          _lineHeight = (_lineHeight + 0.1).clamp(1.2, 2.0);
+                        });
+                      },
+                      icon: const Icon(Icons.add),
+                    ),
+                  ],
+                ),
+              ),
+              ListTile(
+                title: const Text('Text Display Mode'),
+                subtitle: Text(
+                  _textDisplayMode == TextDisplayMode.bionic
+                      ? 'Bionic Reading (Enhanced Focus)'
+                      : _textDisplayMode == TextDisplayMode.html
+                      ? 'Original HTML Formatting'
+                      : 'Plain Text',
+                ),
+                trailing: PopupMenuButton<TextDisplayMode>(
+                  initialValue: _textDisplayMode,
+                  onSelected: (TextDisplayMode value) {
+                    setState(() {
+                      _textDisplayMode = value;
+                    });
+                  },
+                  itemBuilder: (BuildContext context) => <PopupMenuEntry<TextDisplayMode>>[
+                    const PopupMenuItem<TextDisplayMode>(
+                      value: TextDisplayMode.bionic,
+                      child: Text('Bionic Reading'),
+                    ),
+                    const PopupMenuItem<TextDisplayMode>(
+                      value: TextDisplayMode.html,
+                      child: Text('Original HTML'),
+                    ),
+                    const PopupMenuItem<TextDisplayMode>(
+                      value: TextDisplayMode.plain,
+                      child: Text('Plain Text'),
+                    ),
+                  ],
+                ),
+              ),
+              ListTile(
+                title: const Text('Reading Mode'),
+                subtitle: Text(
+                  _readingMode == ReadingMode.paging
+                      ? 'Page by Page'
+                      : 'Continuous Scrolling',
+                ),
+                trailing: Switch(
+                  value: _readingMode == ReadingMode.scrolling,
+                  onChanged: (value) async {
+                    final newMode = value
+                        ? ReadingMode.scrolling
+                        : ReadingMode.paging;
+                    setState(() {
+                      _readingMode = newMode;
+                    });
+
+                    if (newMode == ReadingMode.paging) {
+                      await _generatePages();
                       setState(() {
-                        _lineHeight = (_lineHeight - 0.1).clamp(1.2, 2.0);
+                        _currentPageIndex = 0;
                       });
-                    },
-                    icon: const Icon(Icons.remove),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      setState(() {
-                        _lineHeight = (_lineHeight + 0.1).clamp(1.2, 2.0);
-                      });
-                    },
-                    icon: const Icon(Icons.add),
-                  ),
-                ],
+                    }
+
+                    if (mounted && context.mounted) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                ),
               ),
-            ),
-            ListTile(
-              title: const Text('Reading Mode'),
-              subtitle: Text(_readingMode == ReadingMode.paging ? 'Page by Page' : 'Continuous Scrolling'),
-              trailing: Switch(
-                value: _readingMode == ReadingMode.scrolling,
-                onChanged: (value) {
-                  setState(() {
-                    _readingMode = value ? ReadingMode.scrolling : ReadingMode.paging;
-                  });
-                  Navigator.of(context).pop(); // Close dialog to show the change
-                },
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
