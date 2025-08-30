@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:mime/mime.dart';
+import 'text_reader_service.dart';
 
 class Book {
   final String id;
@@ -121,21 +122,17 @@ class BookService {
 
   Future<Book?> importBook() async {
     try {
+      // 支持的文件扩展名（主要是EPUB）
+      final supportedExtensions = ['epub'];
+      debugPrint('Supported extensions: $supportedExtensions');
+
       // 尝试多种文件选择策略
       FilePickerResult? result;
 
-      // 首先尝试使用自定义扩展名
+      // 首先尝试使用支持的扩展名
       result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: [
-          'epub',
-          'EPUB', // 添加大写版本
-          'txt',
-          'TXT',
-          'copying',
-          'license',
-          'readme',
-        ],
+        allowedExtensions: supportedExtensions,
         allowMultiple: false,
       );
 
@@ -205,14 +202,18 @@ class BookService {
         return null;
       }
 
-      final mimeType = lookupMimeType(newFilePath) ?? 'text/plain';
-      final fileType =
-          _getFileTypeFromExtension(fileExtension) ??
-          _getFileTypeFromMime(mimeType);
+      // 检测文件类型
+      final fileType = fileExtension == 'epub' ? 'epub' : 'txt';
 
-      debugPrint(
-        'File type detected: $fileType (extension: $fileExtension, mime: $mimeType)',
-      );
+      // 验证文件格式是否支持（目前主要支持EPUB）
+      if (fileExtension != 'epub') {
+        debugPrint('Unsupported file format: $fileType');
+        // Delete the copied file since it's not supported
+        await copiedFile.delete();
+        return null;
+      }
+
+      debugPrint('File type detected: $fileType (extension: $fileExtension)');
       debugPrint('Original filename: ${file.name}');
 
       final book = Book(
