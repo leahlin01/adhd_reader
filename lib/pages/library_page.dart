@@ -244,15 +244,21 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   void _openBook(Book book) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => ReaderPage(book: book)));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) =>
+            ReaderPage(bookPath: book.filePath, bookTitle: book.title),
+      ),
+    );
   }
 
   void _continueReading(Book book) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => ReaderPage(book: book)));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) =>
+            ReaderPage(bookPath: book.filePath, bookTitle: book.title),
+      ),
+    );
   }
 
   void _showBookSettings(Book book) {

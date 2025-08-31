@@ -144,7 +144,10 @@ class _HomePageState extends State<HomePage> {
         child: InkWell(
           onTap: () {
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => ReaderPage(book: book)),
+              MaterialPageRoute(
+                builder: (context) =>
+                    ReaderPage(bookPath: book.filePath, bookTitle: book.title),
+              ),
             );
           },
           borderRadius: BorderRadius.circular(12),
@@ -242,7 +245,10 @@ class _HomePageState extends State<HomePage> {
               // Continue reading the most recent book
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => ReaderPage(book: _recentBooks.first),
+                  builder: (context) => ReaderPage(
+                    bookPath: _recentBooks.first.filePath,
+                    bookTitle: _recentBooks.first.title,
+                  ),
                 ),
               );
             }
