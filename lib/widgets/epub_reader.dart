@@ -4,6 +4,7 @@ import 'package:flutter_html/flutter_html.dart';
 import '../models/epub_book.dart';
 import '../services/bookmark_service.dart';
 import '../theme/reading_theme.dart';
+import '../utils/bionic_reading.dart';
 import 'reading_controls.dart';
 
 class EpubReader extends StatefulWidget {
@@ -215,7 +216,10 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
                     ),
                     // 章节内容
                     Html(
-                      data: _getChapterContentWithSubChapters(currentChapter),
+                      data: BionicReading.convertHtmlToBionicReading(
+                        _getChapterContentWithSubChapters(currentChapter),
+                        boldRatio: _settings.bionicBoldRatio,
+                      ),
                       style: {
                         "body": Style(
                           fontSize: FontSize(_settings.fontSize),
@@ -230,6 +234,10 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
                           color: themeData.primaryColor,
                           fontWeight: FontWeight.bold,
                           margin: Margins.only(top: 20, bottom: 10),
+                        ),
+                        "b": Style(
+                          fontWeight: FontWeight.bold,
+                          color: themeData.textColor,
                         ),
                       },
                     ),

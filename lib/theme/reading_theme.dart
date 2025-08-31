@@ -59,6 +59,8 @@ class ReadingSettings {
   final ReadingTheme theme;
   final String fontFamily;
   final double pageMargin;
+  final bool bionicReadingEnabled;
+  final double bionicBoldRatio;
 
   const ReadingSettings({
     this.fontSize = 16.0,
@@ -66,6 +68,8 @@ class ReadingSettings {
     this.theme = ReadingTheme.light,
     this.fontFamily = 'System',
     this.pageMargin = 16.0,
+    this.bionicReadingEnabled = false,
+    this.bionicBoldRatio = 0.5,
   });
 
   ReadingSettings copyWith({
@@ -74,6 +78,8 @@ class ReadingSettings {
     ReadingTheme? theme,
     String? fontFamily,
     double? pageMargin,
+    bool? bionicReadingEnabled,
+    double? bionicBoldRatio,
   }) {
     return ReadingSettings(
       fontSize: fontSize ?? this.fontSize,
@@ -81,6 +87,8 @@ class ReadingSettings {
       theme: theme ?? this.theme,
       fontFamily: fontFamily ?? this.fontFamily,
       pageMargin: pageMargin ?? this.pageMargin,
+      bionicReadingEnabled: bionicReadingEnabled ?? this.bionicReadingEnabled,
+      bionicBoldRatio: bionicBoldRatio ?? this.bionicBoldRatio,
     );
   }
 
@@ -90,6 +98,8 @@ class ReadingSettings {
     'theme': theme.index,
     'fontFamily': fontFamily,
     'pageMargin': pageMargin,
+    'bionicReadingEnabled': bionicReadingEnabled,
+    'bionicBoldRatio': bionicBoldRatio,
   };
 
   factory ReadingSettings.fromJson(Map<String, dynamic> json) =>
@@ -99,5 +109,7 @@ class ReadingSettings {
         theme: ReadingTheme.values[json['theme'] ?? 0],
         fontFamily: json['fontFamily'] ?? 'System',
         pageMargin: json['pageMargin']?.toDouble() ?? 16.0,
+        bionicReadingEnabled: json['bionicReadingEnabled'] ?? false,
+        bionicBoldRatio: json['bionicBoldRatio']?.toDouble() ?? 0.5,
       );
 }
