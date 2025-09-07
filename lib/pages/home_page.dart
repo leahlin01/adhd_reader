@@ -20,6 +20,23 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadRecentBooks();
+
+    // 添加数据变化监听器
+    BookService.instance.addDataChangeListener(_onDataChanged);
+  }
+
+  @override
+  void dispose() {
+    // 移除数据变化监听器
+    BookService.instance.removeDataChangeListener(_onDataChanged);
+    super.dispose();
+  }
+
+  /// 数据变化时的回调
+  void _onDataChanged() {
+    if (mounted) {
+      _loadRecentBooks();
+    }
   }
 
   Future<void> _loadRecentBooks() async {
