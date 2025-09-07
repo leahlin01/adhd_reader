@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'theme/app_theme.dart';
 import 'pages/home_page.dart';
 import 'pages/library_page.dart';
@@ -45,30 +46,92 @@ class _MainAppState extends State<MainApp> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (int index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(
+                  index: 0,
+                  icon: _buildSvgIcon('assets/icons/home.svg', false),
+                  selectedIcon: _buildSvgIcon('assets/icons/home.svg', true),
+                  label: 'Home',
+                ),
+                _buildNavItem(
+                  index: 1,
+                  icon: _buildSvgIcon('assets/icons/library.svg', false),
+                  selectedIcon: _buildSvgIcon('assets/icons/library.svg', true),
+                  label: 'Library',
+                ),
+                _buildNavItem(
+                  index: 2,
+                  icon: _buildSvgIcon('assets/icons/setting.svg', false),
+                  selectedIcon: _buildSvgIcon('assets/icons/setting.svg', true),
+                  label: 'Settings',
+                ),
+              ],
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.library_books_outlined),
-            selectedIcon: Icon(Icons.library_books),
-            label: 'Library',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSvgIcon(String assetPath, bool isSelected) {
+    return SvgPicture.asset(
+      assetPath,
+      width: 24,
+      height: 24,
+      colorFilter: ColorFilter.mode(
+        isSelected ? Colors.black : Colors.grey[600]!,
+        BlendMode.srcIn,
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required int index,
+    required Widget icon,
+    required Widget selectedIcon,
+    required String label,
+  }) {
+    final bool isSelected = _currentIndex == index;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentIndex = index;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            isSelected ? selectedIcon : icon,
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                color: isSelected ? Colors.black : Colors.black,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -31,6 +31,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  flutter_svg: ^2.0.9
   html: ^0.15.4
   path_provider: ^2.1.2
   permission_handler: ^11.0.1
@@ -39,9 +40,9 @@ dependencies:
   mime: ^1.0.4
   archive: ^3.4.10
   flutter_html: ^3.0.0-beta.2
-  xml: ^5.4.1
+  xml: ^6.3.0
   path: ^1.8.3
-  epubx: ^3.0.0
+  epubx: ^4.0.0
 
 dev_dependencies:
   flutter_test:
@@ -68,6 +69,7 @@ flutter:
   assets:
     - assets/books/
     - assets/images/
+    - assets/icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
