@@ -44,6 +44,18 @@ class _MainAppState extends State<MainApp> {
     super.dispose();
   }
 
+  /// 切换到Library页面
+  void navigateToLibrary() {
+    setState(() {
+      _currentIndex = 1;
+    });
+    _pageController.animateToPage(
+      1,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,7 +66,11 @@ class _MainAppState extends State<MainApp> {
             _currentIndex = index;
           });
         },
-        children: const [HomePage(), LibraryPage(), SettingsPage()],
+        children: [
+          HomePage(onNavigateToLibrary: navigateToLibrary),
+          const LibraryPage(),
+          const SettingsPage(),
+        ],
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
