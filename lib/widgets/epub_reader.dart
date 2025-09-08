@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_html/flutter_html.dart';
@@ -41,6 +42,17 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
   ReadingPosition? _lastPosition;
   double _readingProgress = 0.0;
 
+  // 性能优化：缓存处理过的内容
+  final Map<int, String> _processedContentCache = {};
+  final Map<int, Widget> _chapterWidgetCache = {};
+
+  // 性能优化：节流器
+  Timer? _scrollThrottleTimer;
+  Timer? _positionSaveTimer;
+
+  // 性能优化：防抖器
+  Timer? _controlsHideTimer;
+
   @override
   void initState() {
     super.initState();
@@ -69,10 +81,13 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
 
     _loadBookmarks();
     _loadReadingPosition();
-    _scrollController.addListener(_onScroll);
+    _scrollController.addListener(_onScrollThrottled);
 
     // 初始显示控制栏
     _fadeController.forward();
+
+    // 预加载当前章节内容
+    _preloadChapterContent(_currentChapterIndex);
   }
 
   @override
@@ -81,23 +96,57 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
     _scrollController.dispose();
     _fadeController.dispose();
     _slideController.dispose();
+    _scrollThrottleTimer?.cancel();
+    _positionSaveTimer?.cancel();
+    _controlsHideTimer?.cancel();
     super.dispose();
+  }
+
+  // 性能优化：预加载章节内容
+  void _preloadChapterContent(int chapterIndex) {
+    if (chapterIndex >= 0 && chapterIndex < widget.book.chapters.length) {
+      final chapter = widget.book.chapters[chapterIndex];
+      final cacheKey = chapterIndex;
+
+      if (!_processedContentCache.containsKey(cacheKey)) {
+        // 异步处理内容，避免阻塞UI
+        Future.microtask(() {
+          final processedContent = _processChapterContent(chapter);
+          if (mounted) {
+            setState(() {
+              _processedContentCache[cacheKey] = processedContent;
+            });
+          }
+        });
+      }
+    }
+  }
+
+  // 性能优化：处理章节内容
+  String _processChapterContent(EpubChapter chapter) {
+    final content = _getChapterContentWithSubChapters(chapter);
+    return BionicReading.convertHtmlToBionicReading(
+      content,
+      boldRatio: _settings.bionicBoldRatio,
+    );
   }
 
   void _loadBookmarks() async {
     final bookmarks = await BookmarkService.getBookmarks(
       widget.book.identifier,
     );
-    setState(() {
-      _bookmarks = bookmarks;
-    });
+    if (mounted) {
+      setState(() {
+        _bookmarks = bookmarks;
+      });
+    }
   }
 
   void _loadReadingPosition() async {
     final position = await BookmarkService.getReadingPosition(
       widget.book.identifier,
     );
-    if (position != null) {
+    if (position != null && mounted) {
       setState(() {
         _currentChapterIndex = position.chapterIndex;
         _lastPosition = position;
@@ -111,24 +160,30 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
     }
   }
 
+  // 性能优化：节流滚动监听
+  void _onScrollThrottled() {
+    _scrollThrottleTimer?.cancel();
+    _scrollThrottleTimer = Timer(const Duration(milliseconds: 16), () {
+      _onScroll();
+    });
+  }
+
   void _onScroll() {
-    // 节流处理，减少频繁的setState调用
-    if (_scrollController.hasClients) {
-      final maxScroll = _scrollController.position.maxScrollExtent;
-      final currentScroll = _scrollController.offset;
-      final chapterProgress = maxScroll > 0 ? currentScroll / maxScroll : 0.0;
-      final totalProgress =
-          (_currentChapterIndex + chapterProgress) /
-          widget.book.chapters.length;
+    if (!mounted || !_scrollController.hasClients) return;
 
-      final newProgress = totalProgress.clamp(0.0, 1.0);
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.offset;
+    final chapterProgress = maxScroll > 0 ? currentScroll / maxScroll : 0.0;
+    final totalProgress =
+        (_currentChapterIndex + chapterProgress) / widget.book.chapters.length;
 
-      // 只有进度变化超过0.1%时才更新UI
-      if ((newProgress - _readingProgress).abs() > 0.001) {
-        setState(() {
-          _readingProgress = newProgress;
-        });
-      }
+    final newProgress = totalProgress.clamp(0.0, 1.0);
+
+    // 只有进度变化超过0.1%时才更新UI
+    if ((newProgress - _readingProgress).abs() > 0.001) {
+      setState(() {
+        _readingProgress = newProgress;
+      });
     }
 
     final position = ReadingPosition(
@@ -139,8 +194,9 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
 
     widget.onPositionChanged?.call(position);
 
-    // 异步保存位置，避免阻塞UI
-    Future.microtask(() {
+    // 性能优化：防抖保存位置
+    _positionSaveTimer?.cancel();
+    _positionSaveTimer = Timer(const Duration(milliseconds: 500), () {
       BookmarkService.saveReadingPosition(widget.book.identifier, position);
     });
   }
@@ -152,9 +208,20 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
 
     if (_showControls) {
       _fadeController.forward();
+      _controlsHideTimer?.cancel();
     } else {
       _fadeController.reverse();
     }
+  }
+
+  // 性能优化：自动隐藏控制栏
+  void _scheduleControlsHide() {
+    _controlsHideTimer?.cancel();
+    _controlsHideTimer = Timer(const Duration(seconds: 3), () {
+      if (_showControls && mounted) {
+        _toggleControls();
+      }
+    });
   }
 
   void _onSettingsChanged(ReadingSettings newSettings) {
@@ -162,6 +229,13 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
       _settings = newSettings;
     });
     widget.onSettingsChanged?.call(newSettings);
+
+    // 清除缓存，因为设置改变了
+    _processedContentCache.clear();
+    _chapterWidgetCache.clear();
+
+    // 重新处理当前章节
+    _preloadChapterContent(_currentChapterIndex);
   }
 
   void _addBookmark() async {
@@ -177,9 +251,11 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
     _loadBookmarks();
     widget.onBookmarkAdded?.call(bookmark);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('书签已添加'), duration: Duration(seconds: 2)),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('书签已添加'), duration: Duration(seconds: 2)),
+      );
+    }
   }
 
   void _goToChapter(int index) {
@@ -188,6 +264,10 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
         _currentChapterIndex = index;
       });
       _scrollController.jumpTo(0);
+
+      // 预加载相邻章节
+      _preloadChapterContent(index - 1);
+      _preloadChapterContent(index + 1);
     }
   }
 
@@ -274,10 +354,21 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
   Widget _buildOptimizedContent() {
     final themeData = ReadingThemeData.getTheme(_settings.theme);
     final currentChapter = widget.book.chapters[_currentChapterIndex];
+    final cacheKey = _currentChapterIndex;
 
-    return SingleChildScrollView(
+    // 检查缓存
+    if (_chapterWidgetCache.containsKey(cacheKey)) {
+      return _chapterWidgetCache[cacheKey]!;
+    }
+
+    final content =
+        _processedContentCache[cacheKey] ??
+        _processChapterContent(currentChapter);
+
+    final chapterWidget = SingleChildScrollView(
+      // 重命名变量避免冲突
       controller: _scrollController,
-      physics: const ClampingScrollPhysics(), // 使用更流畅的滚动物理
+      physics: const ClampingScrollPhysics(),
       padding: EdgeInsets.only(
         left: _settings.pageMargin,
         right: _settings.pageMargin,
@@ -297,22 +388,20 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
                 fontWeight: FontWeight.bold,
                 color: themeData.textColor,
                 height: _settings.lineHeight,
+                fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
               ),
             ),
           ),
           // 章节内容 - 使用RepaintBoundary优化重绘
           RepaintBoundary(
             child: Html(
-              data: BionicReading.convertHtmlToBionicReading(
-                _getChapterContentWithSubChapters(currentChapter),
-                boldRatio: _settings.bionicBoldRatio,
-              ),
+              data: content,
               style: {
                 "body": Style(
                   fontSize: FontSize(_settings.fontSize),
                   color: themeData.textColor,
                   lineHeight: LineHeight(_settings.lineHeight),
-                  fontFamily: _settings.fontFamily,
+                  fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
                   margin: Margins.zero,
                   padding: HtmlPaddings.zero,
                 ),
@@ -332,6 +421,10 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
         ],
       ),
     );
+
+    // 缓存widget
+    _chapterWidgetCache[cacheKey] = chapterWidget; // 使用重命名后的变量
+    return chapterWidget; // 使用重命名后的变量
   }
 
   Widget _buildTopToolbar() {
@@ -439,6 +532,7 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
                         color: themeData.textColor.withOpacity(0.7),
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
+                        fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
                       ),
                     ),
                     Icon(
@@ -462,6 +556,7 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
                         color: themeData.textColor.withOpacity(0.7),
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
+                        fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
                       ),
                     ),
                     Icon(
@@ -530,6 +625,7 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
                     color: themeData.textColor,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
+                    fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
                   ),
                 ),
                 IconButton(
@@ -560,6 +656,7 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
                       fontWeight: isCurrentChapter
                           ? FontWeight.bold
                           : FontWeight.normal,
+                      fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
                     ),
                   ),
                   leading: Container(
@@ -610,6 +707,7 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
                     color: themeData.textColor,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
+                    fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
                   ),
                 ),
                 IconButton(
@@ -635,6 +733,7 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
                       color: themeData.textColor,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
+                      fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -677,6 +776,7 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
                       color: themeData.textColor,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
+                      fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -710,6 +810,7 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
                                 color: themeData.textColor,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
+                                fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
                               ),
                             ),
                           ),
@@ -729,7 +830,6 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final themeData = ReadingThemeData.getTheme(_settings.theme);
-    final currentChapter = widget.book.chapters[_currentChapterIndex];
 
     return Scaffold(
       backgroundColor: themeData.backgroundColor,
@@ -741,7 +841,12 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
             // 主要内容区域
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: _toggleControls,
+              onTap: () {
+                _toggleControls();
+                if (_showControls) {
+                  _scheduleControlsHide();
+                }
+              },
               onHorizontalDragEnd: (details) {
                 // 左右滑动翻页
                 if (details.primaryVelocity != null) {
