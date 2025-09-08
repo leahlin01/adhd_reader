@@ -18,7 +18,7 @@ class _SettingsPageState extends State<SettingsPage> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -27,10 +27,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Text(
                   'Settings',
                   style: TextStyle(
-                    fontFamily: AppTheme.primaryFontFamily,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                    fontFamily: AppTheme.primaryFontFamilyBold,
+                    fontSize: 20,
                   ),
                 ),
               ),

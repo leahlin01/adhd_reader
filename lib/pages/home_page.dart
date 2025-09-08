@@ -73,13 +73,12 @@ class _HomePageState extends State<HomePage> {
           children: [
             // 顶部标题区域
             Padding(
-              padding: const EdgeInsets.only(top: 20, bottom: 40),
+              padding: const EdgeInsets.only(top: 0, bottom: 40),
               child: Text(
                 'Bionic Reading',
                 style: TextStyle(
-                  fontFamily: AppTheme.primaryFontFamily,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
+                  fontFamily: AppTheme.primaryFontFamilyBold,
+                  fontSize: 18,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -96,8 +95,7 @@ class _HomePageState extends State<HomePage> {
                     Text(
                       'Unlock Focus with\nBionic Reading',
                       style: TextStyle(
-                        fontFamily: AppTheme.primaryFontFamily,
-                        fontWeight: FontWeight.bold,
+                        fontFamily: AppTheme.primaryFontFamilyBold,
                         fontSize: 28,
                         height: 1.2,
                       ),
@@ -111,7 +109,6 @@ class _HomePageState extends State<HomePage> {
                       style: TextStyle(
                         fontFamily: AppTheme.primaryFontFamily,
                         fontSize: 16,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         height: 1.5,
                       ),
                       textAlign: TextAlign.center,

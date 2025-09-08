@@ -81,27 +81,34 @@ class _LibraryPageState extends State<LibraryPage> {
           children: [
             // Header with title and add button
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Library',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                      fontFamily: AppTheme.primaryFontFamily,
+                  // 左侧占位，保持添加按钮在右侧
+                  const SizedBox(width: 48), // 与右侧按钮宽度相同
+                  // 中间标题
+                  Expanded(
+                    child: Text(
+                      'Library',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontFamily: AppTheme.primaryFontFamilyBold,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
+                  // 右侧添加按钮
                   IconButton(
-                    onPressed: _showImportDialog,
+                    onPressed: () async {
+                      await _importBook();
+                    },
                     icon: const Icon(Icons.add, color: Colors.black, size: 24),
                   ),
                 ],
               ),
             ),
 
+            const SizedBox(height: 16),
             // Books list
             Expanded(
               child: _isLoading
@@ -272,7 +279,7 @@ class _LibraryPageState extends State<LibraryPage> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _showImportDialog,
+              onPressed: _importBook,
               icon: const Icon(Icons.book),
               label: Text(
                 'Import Book',
@@ -289,58 +296,6 @@ class _LibraryPageState extends State<LibraryPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showImportDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Import Book',
-          style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Choose a book file to import:',
-              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.file_upload),
-              title: Text(
-                'Upload File',
-                style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
-              ),
-              subtitle: Text(
-                'EPUB, TXT',
-                style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await _importBook();
-            },
-            child: Text(
-              'Upload File',
-              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
-            ),
-          ),
-        ],
       ),
     );
   }

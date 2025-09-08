@@ -11,7 +11,7 @@ class AppTheme {
   static const Color lightPrimaryBackground = Color(0xFFFFFFFF);
   static const Color lightSecondaryBackground = Color(0xFFF8FAFC);
   static const Color lightCardBackground = Color(0xFFFFFFFF);
-  static const Color lightPrimaryText = Color(0xFF1E293B);
+  static const Color lightPrimaryText = Color(0xFF141414); // 更新为 #141414
   static const Color lightSecondaryText = Color(0xFF64748B);
   static const Color lightHintText = Color(0xFF94A3B8);
 
@@ -23,14 +23,45 @@ class AppTheme {
   static const Color darkSecondaryText = Color(0xFFCBD5E1);
   static const Color darkHintText = Color(0xFF94A3B8);
 
-  // Typography - 使用 Google Fonts
-  static String get primaryFontFamily => GoogleFonts.splineSans().fontFamily!;
+  // 通用字体颜色定义 - 根据当前主题动态返回
+  static Color get primaryTextColor =>
+      _isDarkMode ? darkPrimaryText : lightPrimaryText;
+  static Color get secondaryTextColor =>
+      _isDarkMode ? darkSecondaryText : lightSecondaryText;
+  static Color get hintTextColor => _isDarkMode ? darkHintText : lightHintText;
+  static Color get primaryBackgroundColor =>
+      _isDarkMode ? darkPrimaryBackground : lightPrimaryBackground;
+  static Color get secondaryBackgroundColor =>
+      _isDarkMode ? darkSecondaryBackground : lightSecondaryBackground;
+  static Color get cardBackgroundColor =>
+      _isDarkMode ? darkCardBackground : lightCardBackground;
+
+  // 当前主题模式状态（需要在实际使用时设置）
+  static bool _isDarkMode = false;
+
+  // 设置主题模式的方法
+  static void setThemeMode(bool isDarkMode) {
+    _isDarkMode = isDarkMode;
+  }
+
+  // Typography - 使用 Google Fonts 并指定字重
+  static String get primaryFontFamily =>
+      GoogleFonts.splineSans(fontWeight: FontWeight.w400).fontFamily!;
+
+  static String get primaryFontFamilyBold =>
+      GoogleFonts.splineSans(fontWeight: FontWeight.w700).fontFamily!;
+
+  static String get primaryFontFamilySemiBold =>
+      GoogleFonts.splineSans(fontWeight: FontWeight.w600).fontFamily!;
+
   static String get fallbackFontFamily => GoogleFonts.splineSans().fontFamily!;
 
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
       fontFamily: primaryFontFamily,
+
+      // 关键：通过 ColorScheme 设置全局文本颜色
       colorScheme: const ColorScheme.light(
         primary: primaryColor,
         secondary: secondaryColor,
@@ -39,9 +70,14 @@ class AppTheme {
         background: lightPrimaryBackground,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
-        onSurface: lightPrimaryText,
-        onBackground: lightPrimaryText,
+        onSurface: lightPrimaryText, // 这是全局文本颜色
+        onBackground: lightPrimaryText, // 背景上的文本颜色
+        onSurfaceVariant: lightSecondaryText, // 次要文本颜色
       ),
+
+      // 简化文本主题，让 ColorScheme 控制颜色
+      textTheme: GoogleFonts.splineSansTextTheme(),
+
       scaffoldBackgroundColor: lightPrimaryBackground,
       cardTheme: CardThemeData(
         color: lightCardBackground,
@@ -57,56 +93,6 @@ class AppTheme {
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: lightPrimaryText,
-        ),
-      ),
-      textTheme: GoogleFonts.interTextTheme().copyWith(
-        headlineLarge: GoogleFonts.inter(
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
-          color: lightPrimaryText,
-          height: 1.2,
-        ),
-        headlineMedium: GoogleFonts.inter(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: lightPrimaryText,
-          height: 1.2,
-        ),
-        headlineSmall: GoogleFonts.inter(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: lightPrimaryText,
-          height: 1.2,
-        ),
-        bodyLarge: GoogleFonts.inter(
-          fontSize: 18,
-          fontWeight: FontWeight.w400,
-          color: lightPrimaryText,
-          height: 1.6,
-        ),
-        bodyMedium: GoogleFonts.inter(
-          fontSize: 16,
-          fontWeight: FontWeight.w400,
-          color: lightPrimaryText,
-          height: 1.5,
-        ),
-        bodySmall: GoogleFonts.inter(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: lightSecondaryText,
-          height: 1.5,
-        ),
-        labelLarge: GoogleFonts.inter(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: lightPrimaryText,
-          height: 1.4,
-        ),
-        labelMedium: GoogleFonts.inter(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: lightPrimaryText,
-          height: 1.4,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -184,54 +170,82 @@ class AppTheme {
           color: darkPrimaryText,
         ),
       ),
-      textTheme: GoogleFonts.interTextTheme().copyWith(
-        headlineLarge: GoogleFonts.inter(
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
-          color: darkPrimaryText,
-          height: 1.2,
-        ),
-        headlineMedium: GoogleFonts.inter(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: darkPrimaryText,
-          height: 1.2,
-        ),
-        headlineSmall: GoogleFonts.inter(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: darkPrimaryText,
-          height: 1.2,
-        ),
-        bodyLarge: GoogleFonts.inter(
-          fontSize: 18,
+      textTheme: GoogleFonts.splineSansTextTheme().copyWith(
+        // 设置所有文本样式的默认颜色为暗色主题颜色
+        displayLarge: GoogleFonts.splineSans(
+          fontSize: 57,
           fontWeight: FontWeight.w400,
           color: darkPrimaryText,
-          height: 1.6,
         ),
-        bodyMedium: GoogleFonts.inter(
+        displayMedium: GoogleFonts.splineSans(
+          fontSize: 45,
+          fontWeight: FontWeight.w400,
+          color: darkPrimaryText,
+        ),
+        displaySmall: GoogleFonts.splineSans(
+          fontSize: 36,
+          fontWeight: FontWeight.w400,
+          color: darkPrimaryText,
+        ),
+        headlineLarge: GoogleFonts.splineSans(
+          fontSize: 32,
+          fontWeight: FontWeight.w400,
+          color: darkPrimaryText,
+        ),
+        headlineMedium: GoogleFonts.splineSans(
+          fontSize: 28,
+          fontWeight: FontWeight.w400,
+          color: darkPrimaryText,
+        ),
+        headlineSmall: GoogleFonts.splineSans(
+          fontSize: 24,
+          fontWeight: FontWeight.w400,
+          color: darkPrimaryText,
+        ),
+        titleLarge: GoogleFonts.splineSans(
+          fontSize: 22,
+          fontWeight: FontWeight.w400,
+          color: darkPrimaryText,
+        ),
+        titleMedium: GoogleFonts.splineSans(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: darkPrimaryText,
+        ),
+        titleSmall: GoogleFonts.splineSans(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: darkPrimaryText,
+        ),
+        bodyLarge: GoogleFonts.splineSans(
           fontSize: 16,
           fontWeight: FontWeight.w400,
           color: darkPrimaryText,
-          height: 1.5,
         ),
-        bodySmall: GoogleFonts.inter(
+        bodyMedium: GoogleFonts.splineSans(
           fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: darkPrimaryText,
+        ),
+        bodySmall: GoogleFonts.splineSans(
+          fontSize: 12,
           fontWeight: FontWeight.w400,
           color: darkSecondaryText,
-          height: 1.5,
         ),
-        labelLarge: GoogleFonts.inter(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: darkPrimaryText,
-          height: 1.4,
-        ),
-        labelMedium: GoogleFonts.inter(
+        labelLarge: GoogleFonts.splineSans(
           fontSize: 14,
           fontWeight: FontWeight.w500,
           color: darkPrimaryText,
-          height: 1.4,
+        ),
+        labelMedium: GoogleFonts.splineSans(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: darkPrimaryText,
+        ),
+        labelSmall: GoogleFonts.splineSans(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: darkPrimaryText,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
