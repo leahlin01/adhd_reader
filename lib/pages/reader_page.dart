@@ -58,15 +58,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.bookTitle, style: const TextStyle(fontSize: 16)),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
-      ),
-      body: _buildBody(),
-    );
+    return Scaffold(body: _buildBody());
   }
 
   Widget _buildBody() {

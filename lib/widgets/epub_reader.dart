@@ -5,6 +5,7 @@ import 'package:flutter_html/flutter_html.dart';
 import '../models/epub_book.dart';
 import '../services/bookmark_service.dart';
 import '../theme/reading_theme.dart';
+import '../theme/app_theme.dart';
 import '../utils/bionic_reading.dart';
 
 class EpubReader extends StatefulWidget {
@@ -315,12 +316,30 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
   }
 
   void _showTableOfContents() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _buildTableOfContents(),
-    );
+    // 添加调试信息和错误处理
+    print('目录按钮被点击了');
+    print('书籍章节数量: ${widget.book.chapters.length}');
+
+    if (widget.book.chapters.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('书籍没有章节内容')));
+      return;
+    }
+
+    try {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => _buildTableOfContents(),
+      );
+    } catch (e) {
+      print('显示目录时出错: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('显示目录失败: $e')));
+    }
   }
 
   void _showSettings() {
@@ -431,9 +450,8 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
     final themeData = ReadingThemeData.getTheme(_settings.theme);
 
     return Container(
-      height: 50,
       decoration: BoxDecoration(
-        color: themeData.backgroundColor.withOpacity(0.95),
+        color: Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -443,36 +461,49 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
         ],
       ),
       child: SafeArea(
+        top: true,
+        bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Column(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
             children: [
-              // 第一行：设置按钮、目录按钮
+              // 左边：返回按钮
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  child: Icon(
+                    Icons.arrow_back_ios,
+                    color: themeData.textColor,
+                    size: 20,
+                  ),
+                ),
+              ),
+
+              // 中间：书名（超出省略）
               Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          onPressed: _showSettings,
-                          icon: Icon(
-                            Icons.settings,
-                            color: themeData.primaryColor,
-                            size: 20,
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: _showTableOfContents,
-                          icon: Icon(
-                            Icons.menu,
-                            color: themeData.primaryColor,
-                            size: 20,
-                          ),
-                        ),
-                      ],
+                child: Center(
+                  child: Text(
+                    widget.book.title,
+                    style: TextStyle(
+                      color: themeData.textColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: AppTheme.primaryFontFamily,
                     ),
-                  ],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+
+              // 右边：目录按钮
+              GestureDetector(
+                onTap: _showTableOfContents,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  child: Icon(Icons.menu, color: themeData.textColor, size: 20),
                 ),
               ),
             ],
@@ -600,6 +631,10 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
   Widget _buildTableOfContents() {
     final themeData = ReadingThemeData.getTheme(_settings.theme);
 
+    // 添加调试信息
+    print('构建目录，章节数量: ${widget.book.chapters.length}');
+    print('当前章节索引: $_currentChapterIndex');
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
       decoration: BoxDecoration(
@@ -620,12 +655,12 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '目录',
+                  'Index',
                   style: TextStyle(
                     color: themeData.textColor,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
+                    fontFamily: AppTheme.primaryFontFamily, // 使用项目约定的字体
                   ),
                 ),
                 IconButton(
@@ -640,39 +675,52 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
           ),
           // 章节列表
           Expanded(
-            child: ListView.builder(
-              itemCount: widget.book.chapters.length,
-              itemBuilder: (context, index) {
-                final chapter = widget.book.chapters[index];
-                final isCurrentChapter = index == _currentChapterIndex;
-
-                return ListTile(
-                  title: Text(
-                    chapter.title,
-                    style: TextStyle(
-                      color: isCurrentChapter
-                          ? themeData.primaryColor
-                          : themeData.textColor,
-                      fontWeight: isCurrentChapter
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                      fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
+            child: widget.book.chapters.isEmpty
+                ? Center(
+                    child: Text(
+                      'None',
+                      style: TextStyle(
+                        color: themeData.textColor.withOpacity(0.7),
+                        fontSize: 16,
+                        fontFamily: AppTheme.primaryFontFamily,
+                      ),
                     ),
+                  )
+                : ListView.builder(
+                    itemCount: widget.book.chapters.length,
+                    itemBuilder: (context, index) {
+                      final chapter = widget.book.chapters[index];
+                      final isCurrentChapter = index == _currentChapterIndex;
+
+                      return ListTile(
+                        title: Text(
+                          chapter.title.isNotEmpty
+                              ? chapter.title
+                              : 'Chapter ${index + 1}',
+                          style: TextStyle(
+                            color: isCurrentChapter
+                                ? themeData.primaryColor
+                                : themeData.textColor,
+                            fontWeight: isCurrentChapter
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            fontFamily: AppTheme.primaryFontFamily, // 使用项目约定的字体
+                          ),
+                        ),
+                        leading: Container(
+                          width: 4,
+                          height: 20,
+                          color: isCurrentChapter
+                              ? themeData.primaryColor
+                              : Colors.transparent,
+                        ),
+                        onTap: () {
+                          _goToChapter(index);
+                          Navigator.of(context).pop();
+                        },
+                      );
+                    },
                   ),
-                  leading: Container(
-                    width: 4,
-                    height: 20,
-                    color: isCurrentChapter
-                        ? themeData.primaryColor
-                        : Colors.transparent,
-                  ),
-                  onTap: () {
-                    _goToChapter(index);
-                    Navigator.of(context).pop();
-                  },
-                );
-              },
-            ),
           ),
         ],
       ),
