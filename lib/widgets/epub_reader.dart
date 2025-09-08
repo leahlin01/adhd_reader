@@ -347,7 +347,9 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _buildSettingsPanel(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => _buildSettingsPanel(setModalState),
+      ),
     );
   }
 
@@ -515,16 +517,12 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
 
   Widget _buildBottomToolbar() {
     final themeData = ReadingThemeData.getTheme(_settings.theme);
-    final isBookmarked = _bookmarks.any(
-      (b) =>
-          b.chapterIndex == _currentChapterIndex &&
-          (b.scrollOffset - _scrollController.offset).abs() < 100,
-    );
+    final currentChapter = widget.book.chapters[_currentChapterIndex];
+    final progressPercentage = (_readingProgress * 100).round();
 
     return Container(
-      height: 80,
       decoration: BoxDecoration(
-        color: themeData.backgroundColor.withOpacity(0.95),
+        color: Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -534,92 +532,126 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
         ],
       ),
       child: SafeArea(
+        top: false,
+        bottom: true,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          padding: const EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 12,
+            bottom: 0,
+          ),
+          child: Column(
             children: [
-              // 书签按钮
-              InkWell(
-                onTap: _addBookmark,
-                child: Icon(
-                  isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                  color: isBookmarked
-                      ? themeData.primaryColor
-                      : themeData.textColor.withOpacity(0.7),
-                  size: 24,
-                ),
-              ),
-              // 字体减小
-              InkWell(
-                onTap: _decreaseFontSize,
-                child: Row(
-                  mainAxisSize: MainAxisSize.max,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'A',
+              // 第一行：章节信息和进度百分比
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // 左侧：章节标题
+                  Expanded(
+                    child: Text(
+                      currentChapter.title.isNotEmpty
+                          ? currentChapter.title
+                          : 'Chapter ${_currentChapterIndex + 1}',
                       style: TextStyle(
-                        color: themeData.textColor.withOpacity(0.7),
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
+                        color: themeData.textColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        // 暂时移除 fontFamily，使用系统默认字体
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 40),
+                  // 右侧：进度百分比
+                  Text(
+                    '$progressPercentage%',
+                    style: TextStyle(
+                      color: themeData.textColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      // 暂时移除 fontFamily，使用系统默认字体
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // 第二行：进度条
+              Row(
+                children: [
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: Colors.black,
+                        inactiveTrackColor: Colors.grey.shade300,
+                        thumbColor: Colors.black,
+                        overlayColor: Colors.black.withOpacity(0.1),
+                        trackHeight: 4,
+                      ),
+                      child: Slider(
+                        value: _readingProgress,
+                        onChanged: _onProgressChanged,
                       ),
                     ),
-                    Icon(
-                      Icons.remove,
-                      color: themeData.textColor.withOpacity(0.7),
-                      size: 16,
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              // 字体增大
-              InkWell(
-                onTap: _increaseFontSize,
-                child: Row(
-                  mainAxisSize: MainAxisSize.max,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'A',
-                      style: TextStyle(
-                        color: themeData.textColor.withOpacity(0.7),
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
+              const SizedBox(height: 8),
+              // 第三行：导航控制
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // 左侧：上一章按钮
+                  GestureDetector(
+                    onTap: _currentChapterIndex > 0 ? _previousChapter : null,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.chevron_left,
+                        color: _currentChapterIndex > 0
+                            ? themeData.textColor.withOpacity(0.7)
+                            : themeData.textColor.withOpacity(0.3),
+                        size: 24,
                       ),
                     ),
-                    Icon(
-                      Icons.add,
-                      color: themeData.textColor.withOpacity(0.7),
-                      size: 16,
+                  ),
+                  // 中间：字体设置按钮
+                  GestureDetector(
+                    onTap: _showSettings,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        'Aa',
+                        style: TextStyle(
+                          color: themeData.textColor.withOpacity(0.7),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                          // 暂时移除 fontFamily，使用系统默认字体
+                        ),
+                      ),
                     ),
-                  ],
-                ),
-              ),
-              InkWell(
-                onTap: _currentChapterIndex > 0 ? _previousChapter : null,
-                child: Icon(
-                  Icons.arrow_back_ios,
-                  color: _currentChapterIndex > 0
-                      ? themeData.textColor.withOpacity(0.7)
-                      : themeData.textColor.withOpacity(0.3),
-                  size: 20,
-                ),
-              ),
-              // 翻页按钮
-              InkWell(
-                onTap: _currentChapterIndex < widget.book.chapters.length - 1
-                    ? _nextChapter
-                    : null,
-                child: Icon(
-                  Icons.arrow_forward_ios,
-                  color: _currentChapterIndex < widget.book.chapters.length - 1
-                      ? themeData.textColor.withOpacity(0.7)
-                      : themeData.textColor.withOpacity(0.3),
-                  size: 20,
-                ),
+                  ),
+                  // 右侧：下一章按钮
+                  GestureDetector(
+                    onTap:
+                        _currentChapterIndex < widget.book.chapters.length - 1
+                        ? _nextChapter
+                        : null,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.chevron_right,
+                        color:
+                            _currentChapterIndex <
+                                widget.book.chapters.length - 1
+                            ? themeData.textColor.withOpacity(0.7)
+                            : themeData.textColor.withOpacity(0.3),
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -727,13 +759,11 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildSettingsPanel() {
-    final themeData = ReadingThemeData.getTheme(_settings.theme);
-
+  Widget _buildSettingsPanel(StateSetter setModalState) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.6,
+      height: MediaQuery.of(context).size.height * 0.7,
       decoration: BoxDecoration(
-        color: themeData.backgroundColor,
+        color: Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -742,136 +772,271 @@ class _EpubReaderState extends State<EpubReader> with TickerProviderStateMixin {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: themeData.textColor.withOpacity(0.1)),
-              ),
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '阅读设置',
+                  'Reading Settings',
                   style: TextStyle(
-                    color: themeData.textColor,
+                    color: Colors.black,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
+                    fontFamily: AppTheme.primaryFontFamily,
                   ),
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: Icon(
-                    Icons.close,
-                    color: themeData.textColor.withOpacity(0.7),
-                  ),
+                  icon: Icon(Icons.close, color: Colors.grey.shade600),
                 ),
               ],
             ),
           ),
           // 设置选项
           Expanded(
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '字体大小',
-                    style: TextStyle(
-                      color: themeData.textColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: _decreaseFontSize,
-                        icon: Icon(
-                          Icons.remove_circle_outline,
-                          color: themeData.primaryColor,
-                        ),
-                      ),
-                      Expanded(
-                        child: Slider(
-                          value: _settings.fontSize.toDouble(),
-                          min: 12,
-                          max: 24,
-                          divisions: 12,
-                          label: _settings.fontSize.toString(),
-                          onChanged: (value) {
-                            _onSettingsChanged(
-                              _settings.copyWith(fontSize: value),
-                            );
+                  // 字体大小设置
+                  _buildSettingSection(
+                    title: 'Font Size',
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            _decreaseFontSize();
+                            setModalState(() {});
                           },
+                          icon: Icon(
+                            Icons.remove_circle_outline,
+                            color: Colors.blue,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: _increaseFontSize,
-                        icon: Icon(
-                          Icons.add_circle_outline,
-                          color: themeData.primaryColor,
+                        Expanded(
+                          child: Slider(
+                            value: _settings.fontSize.toDouble(),
+                            min: 12,
+                            max: 24,
+                            divisions: 12,
+                            label: _settings.fontSize.round().toString(),
+                            activeColor: Colors.blue,
+                            onChanged: (value) {
+                              _onSettingsChanged(
+                                _settings.copyWith(fontSize: value),
+                              );
+                              setModalState(() {});
+                            },
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    '主题',
-                    style: TextStyle(
-                      color: themeData.textColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
+                        IconButton(
+                          onPressed: () {
+                            _increaseFontSize();
+                            setModalState(() {});
+                          },
+                          icon: Icon(
+                            Icons.add_circle_outline,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: ReadingTheme.values.map((theme) {
-                      final isSelected = _settings.theme == theme;
-                      final themeData = ReadingThemeData.getTheme(theme);
 
-                      return GestureDetector(
-                        onTap: () {
-                          _onSettingsChanged(_settings.copyWith(theme: theme));
-                        },
-                        child: Container(
-                          width: 60,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            color: themeData.backgroundColor,
-                            border: Border.all(
-                              color: isSelected
-                                  ? themeData.primaryColor
-                                  : themeData.textColor.withOpacity(0.3),
-                              width: isSelected ? 3 : 1,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
+                  const SizedBox(height: 24),
+
+                  // 行间距设置
+                  _buildSettingSection(
+                    title: 'Line Height',
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            if (_settings.lineHeight > 1.0) {
+                              _onSettingsChanged(
+                                _settings.copyWith(
+                                  lineHeight: _settings.lineHeight - 0.1,
+                                ),
+                              );
+                              setModalState(() {});
+                            }
+                          },
+                          icon: Icon(
+                            Icons.remove_circle_outline,
+                            color: Colors.blue,
                           ),
-                          child: Center(
-                            child: Text(
-                              'Aa',
-                              style: TextStyle(
-                                color: themeData.textColor,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: _settings.fontFamily, // 使用阅读设置中的字体
+                        ),
+                        Expanded(
+                          child: Slider(
+                            value: _settings.lineHeight,
+                            min: 1.0,
+                            max: 2.0,
+                            divisions: 10,
+                            label: _settings.lineHeight.toStringAsFixed(1),
+                            activeColor: Colors.blue,
+                            onChanged: (value) {
+                              _onSettingsChanged(
+                                _settings.copyWith(lineHeight: value),
+                              );
+                              setModalState(() {});
+                            },
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            if (_settings.lineHeight < 2.0) {
+                              _onSettingsChanged(
+                                _settings.copyWith(
+                                  lineHeight: _settings.lineHeight + 0.1,
+                                ),
+                              );
+                              setModalState(() {});
+                            }
+                          },
+                          icon: Icon(
+                            Icons.add_circle_outline,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // 页边距设置
+                  _buildSettingSection(
+                    title: 'Page Margin',
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            if (_settings.pageMargin > 8.0) {
+                              _onSettingsChanged(
+                                _settings.copyWith(
+                                  pageMargin: _settings.pageMargin - 4.0,
+                                ),
+                              );
+                              setModalState(() {});
+                            }
+                          },
+                          icon: Icon(
+                            Icons.remove_circle_outline,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        Expanded(
+                          child: Slider(
+                            value: _settings.pageMargin,
+                            min: 8.0,
+                            max: 32.0,
+                            divisions: 6,
+                            label: _settings.pageMargin.round().toString(),
+                            activeColor: Colors.blue,
+                            onChanged: (value) {
+                              _onSettingsChanged(
+                                _settings.copyWith(pageMargin: value),
+                              );
+                              setModalState(() {});
+                            },
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            if (_settings.pageMargin < 32.0) {
+                              _onSettingsChanged(
+                                _settings.copyWith(
+                                  pageMargin: _settings.pageMargin + 4.0,
+                                ),
+                              );
+                              setModalState(() {});
+                            }
+                          },
+                          icon: Icon(
+                            Icons.add_circle_outline,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // 主题设置
+                  _buildSettingSection(
+                    title: 'Theme',
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: ReadingTheme.values.map((theme) {
+                        final isSelected = _settings.theme == theme;
+                        final themeData = ReadingThemeData.getTheme(theme);
+
+                        return GestureDetector(
+                          onTap: () {
+                            _onSettingsChanged(
+                              _settings.copyWith(theme: theme),
+                            );
+                            setModalState(() {});
+                          },
+                          child: Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: themeData.backgroundColor,
+                              border: Border.all(
+                                color: isSelected
+                                    ? Colors.blue
+                                    : Colors.grey.shade300,
+                                width: isSelected ? 3 : 1,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Aa',
+                                style: TextStyle(
+                                  color: themeData.textColor,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: AppTheme.primaryFontFamily,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    }).toList(),
+                        );
+                      }).toList(),
+                    ),
                   ),
+
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSettingSection({required String title, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            fontFamily: AppTheme.primaryFontFamily,
+          ),
+        ),
+        const SizedBox(height: 12),
+        child,
+      ],
     );
   }
 

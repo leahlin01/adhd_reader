@@ -23,28 +23,28 @@ class ReadingThemeData {
       textColor: Color(0xFF000000),
       primaryColor: Color(0xFF2196F3),
       secondaryColor: Color(0xFF757575),
-      name: '明亮',
+      name: 'light',
     ),
     ReadingTheme.dark: ReadingThemeData(
       backgroundColor: Color(0xFF121212),
       textColor: Color(0xFFE0E0E0),
       primaryColor: Color(0xFF64B5F6),
       secondaryColor: Color(0xFF9E9E9E),
-      name: '深色',
+      name: 'dark',
     ),
     ReadingTheme.sepia: ReadingThemeData(
       backgroundColor: Color(0xFFF5F5DC),
       textColor: Color(0xFF5D4037),
       primaryColor: Color(0xFF8D6E63),
       secondaryColor: Color(0xFF795548),
-      name: '护眼',
+      name: 'sepia',
     ),
     ReadingTheme.night: ReadingThemeData(
       backgroundColor: Color(0xFF000000),
       textColor: Color(0xFF4CAF50),
       primaryColor: Color(0xFF66BB6A),
       secondaryColor: Color(0xFF81C784),
-      name: '夜间',
+      name: 'night',
     ),
   };
 
