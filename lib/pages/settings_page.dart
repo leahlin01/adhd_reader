@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/book_service.dart';
+import '../theme/app_theme.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -26,10 +27,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Text(
                   'Settings',
                   style: TextStyle(
+                    fontFamily: AppTheme.primaryFontFamily,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
-                    fontFamily: 'SplineSans',
                   ),
                 ),
               ),
@@ -62,10 +63,10 @@ class _SettingsPageState extends State<SettingsPage> {
     return Text(
       title,
       style: TextStyle(
+        fontFamily: AppTheme.primaryFontFamily,
         fontSize: 18,
         fontWeight: FontWeight.bold,
         color: Colors.black,
-        fontFamily: 'SplineSans',
       ),
     );
   }
@@ -102,8 +103,8 @@ class _SettingsPageState extends State<SettingsPage> {
           trailing: Text(
             'leahlin2022@qq.com',
             style: TextStyle(
+              fontFamily: AppTheme.primaryFontFamily,
               color: Colors.grey.shade600,
-              fontFamily: 'SplineSans',
             ),
           ),
         ),
@@ -129,8 +130,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 Text(
                   'v1.0.0',
                   style: TextStyle(
+                    fontFamily: AppTheme.primaryFontFamily,
                     color: Colors.grey.shade600,
-                    fontFamily: 'SplineSans',
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -190,9 +191,9 @@ class _SettingsPageState extends State<SettingsPage> {
           Text(
             title,
             style: TextStyle(
+              fontFamily: AppTheme.primaryFontFamily,
               fontSize: 16,
               color: Colors.black,
-              fontFamily: 'SplineSans',
             ),
           ),
           trailing ?? const SizedBox.shrink(),
@@ -208,29 +209,35 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context) => AlertDialog(
         title: Text(
           'About ADHD Reader',
-          style: TextStyle(fontFamily: 'SplineSans'),
+          style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Version: 1.0.0', style: TextStyle(fontFamily: 'SplineSans')),
+            Text(
+              'Version: 1.0.0',
+              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
+            ),
             const SizedBox(height: 8),
             Text(
               'Build: 2024.01.15',
-              style: TextStyle(fontFamily: 'SplineSans'),
+              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
             ),
             const SizedBox(height: 8),
             Text(
               'ADHD Reader is designed to help people with ADHD focus better while reading through innovative techniques like Bionic Reading.',
-              style: TextStyle(fontFamily: 'SplineSans'),
+              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Close', style: TextStyle(fontFamily: 'SplineSans')),
+            child: Text(
+              'Close',
+              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
+            ),
           ),
         ],
       ),
@@ -243,7 +250,7 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context) => AlertDialog(
         title: Text(
           'Help & Feedback',
-          style: TextStyle(fontFamily: 'SplineSans'),
+          style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -251,18 +258,18 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             Text(
               'Need help? Here are some ways to get support:',
-              style: TextStyle(fontFamily: 'SplineSans'),
+              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
             ),
             const SizedBox(height: 16),
             ListTile(
               leading: const Icon(Icons.email),
               title: Text(
                 'Email Support',
-                style: TextStyle(fontFamily: 'SplineSans'),
+                style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
               ),
               subtitle: Text(
                 'leahlin2022@qq.com',
-                style: TextStyle(fontFamily: 'SplineSans'),
+                style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
               ),
             ),
           ],
@@ -270,7 +277,10 @@ class _SettingsPageState extends State<SettingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Close', style: TextStyle(fontFamily: 'SplineSans')),
+            child: Text(
+              'Close',
+              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
+            ),
           ),
         ],
       ),
@@ -283,7 +293,7 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context) => AlertDialog(
         title: Text(
           'Privacy Policy',
-          style: TextStyle(fontFamily: 'SplineSans'),
+          style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
         ),
         content: SingleChildScrollView(
           child: Column(
@@ -292,29 +302,29 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               Text(
                 'Your privacy is important to us. This app:',
-                style: TextStyle(fontFamily: 'SplineSans'),
+                style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
               ),
               const SizedBox(height: 8),
               Text(
                 '• Does not collect personal information',
-                style: TextStyle(fontFamily: 'SplineSans'),
+                style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
               ),
               Text(
                 '• Stores reading data locally on your device',
-                style: TextStyle(fontFamily: 'SplineSans'),
+                style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
               ),
               Text(
                 '• Does not share data with third parties',
-                style: TextStyle(fontFamily: 'SplineSans'),
+                style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
               ),
               Text(
                 '• Uses analytics only to improve app performance',
-                style: TextStyle(fontFamily: 'SplineSans'),
+                style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
               ),
               const SizedBox(height: 16),
               Text(
                 'For the complete privacy policy, visit our website.',
-                style: TextStyle(fontFamily: 'SplineSans'),
+                style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
               ),
             ],
           ),
@@ -322,7 +332,10 @@ class _SettingsPageState extends State<SettingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Close', style: TextStyle(fontFamily: 'SplineSans')),
+            child: Text(
+              'Close',
+              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
+            ),
           ),
         ],
       ),
@@ -335,16 +348,19 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context) => AlertDialog(
         title: Text(
           'Clear All Data',
-          style: TextStyle(fontFamily: 'SplineSans'),
+          style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
         ),
         content: Text(
           'Are you sure you want to clear all reading data? This action cannot be undone.',
-          style: TextStyle(fontFamily: 'SplineSans'),
+          style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel', style: TextStyle(fontFamily: 'SplineSans')),
+            child: Text(
+              'Cancel',
+              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -355,7 +371,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   SnackBar(
                     content: Text(
                       'Clearing all data...',
-                      style: TextStyle(fontFamily: 'SplineSans'),
+                      style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
                     ),
                     duration: const Duration(seconds: 2),
                   ),
@@ -372,7 +388,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     SnackBar(
                       content: Text(
                         'All data cleared successfully',
-                        style: TextStyle(fontFamily: 'SplineSans'),
+                        style: TextStyle(
+                          fontFamily: AppTheme.primaryFontFamily,
+                        ),
                       ),
                       duration: const Duration(seconds: 2),
                     ),
@@ -386,7 +404,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     SnackBar(
                       content: Text(
                         'Error clearing data: $e',
-                        style: TextStyle(fontFamily: 'SplineSans'),
+                        style: TextStyle(
+                          fontFamily: AppTheme.primaryFontFamily,
+                        ),
                       ),
                       backgroundColor: Colors.red,
                       duration: const Duration(seconds: 3),
@@ -398,7 +418,7 @@ class _SettingsPageState extends State<SettingsPage> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: Text(
               'Clear Data',
-              style: TextStyle(fontFamily: 'SplineSans'),
+              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
             ),
           ),
         ],

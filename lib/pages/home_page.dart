@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/common_widgets.dart';
 import '../services/book_service.dart';
+import '../theme/app_theme.dart';
 import 'settings_page.dart';
 import 'library_page.dart';
 import 'reader_page.dart';
@@ -75,8 +76,8 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.only(top: 20, bottom: 40),
               child: Text(
                 'Bionic Reading',
-                style: const TextStyle(
-                  fontFamily: 'Spline Sans',
+                style: TextStyle(
+                  fontFamily: AppTheme.primaryFontFamily,
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
                 ),
@@ -94,8 +95,8 @@ class _HomePageState extends State<HomePage> {
                     // 大标题
                     Text(
                       'Unlock Focus with\nBionic Reading',
-                      style: const TextStyle(
-                        fontFamily: 'Spline Sans',
+                      style: TextStyle(
+                        fontFamily: AppTheme.primaryFontFamily,
                         fontWeight: FontWeight.bold,
                         fontSize: 28,
                         height: 1.2,
@@ -108,7 +109,7 @@ class _HomePageState extends State<HomePage> {
                     Text(
                       'Transform your reading experience with our innovative approach, designed to enhance focus and comprehension for individuals with ADHD.',
                       style: TextStyle(
-                        fontFamily: 'Spline Sans',
+                        fontFamily: AppTheme.primaryFontFamily,
                         fontSize: 16,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         height: 1.5,
@@ -150,8 +151,8 @@ class _HomePageState extends State<HomePage> {
                           _recentBooks.isEmpty
                               ? 'Get Started'
                               : 'Continue Reading',
-                          style: const TextStyle(
-                            fontFamily: 'Spline Sans',
+                          style: TextStyle(
+                            fontFamily: AppTheme.primaryFontFamily,
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                           ),

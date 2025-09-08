@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Primary Colors
@@ -22,9 +23,9 @@ class AppTheme {
   static const Color darkSecondaryText = Color(0xFFCBD5E1);
   static const Color darkHintText = Color(0xFF94A3B8);
 
-  // Typography
-  static const String primaryFontFamily = 'Inter';
-  static const String fallbackFontFamily = 'SF Pro Display';
+  // Typography - 使用 Google Fonts
+  static String get primaryFontFamily => GoogleFonts.splineSans().fontFamily!;
+  static String get fallbackFontFamily => GoogleFonts.splineSans().fontFamily!;
 
   static ThemeData get lightTheme {
     return ThemeData(
@@ -47,61 +48,61 @@ class AppTheme {
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: lightPrimaryBackground,
         foregroundColor: lightPrimaryText,
         elevation: 0,
         centerTitle: true,
-        titleTextStyle: TextStyle(
+        titleTextStyle: GoogleFonts.inter(
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: lightPrimaryText,
         ),
       ),
-      textTheme: const TextTheme(
-        headlineLarge: TextStyle(
+      textTheme: GoogleFonts.interTextTheme().copyWith(
+        headlineLarge: GoogleFonts.inter(
           fontSize: 24,
           fontWeight: FontWeight.w700,
           color: lightPrimaryText,
           height: 1.2,
         ),
-        headlineMedium: TextStyle(
+        headlineMedium: GoogleFonts.inter(
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: lightPrimaryText,
           height: 1.2,
         ),
-        headlineSmall: TextStyle(
+        headlineSmall: GoogleFonts.inter(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: lightPrimaryText,
           height: 1.2,
         ),
-        bodyLarge: TextStyle(
+        bodyLarge: GoogleFonts.inter(
           fontSize: 18,
           fontWeight: FontWeight.w400,
           color: lightPrimaryText,
           height: 1.6,
         ),
-        bodyMedium: TextStyle(
+        bodyMedium: GoogleFonts.inter(
           fontSize: 16,
           fontWeight: FontWeight.w400,
           color: lightPrimaryText,
           height: 1.5,
         ),
-        bodySmall: TextStyle(
+        bodySmall: GoogleFonts.inter(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: lightSecondaryText,
           height: 1.5,
         ),
-        labelLarge: TextStyle(
+        labelLarge: GoogleFonts.inter(
           fontSize: 16,
           fontWeight: FontWeight.w500,
           color: lightPrimaryText,
           height: 1.4,
         ),
-        labelMedium: TextStyle(
+        labelMedium: GoogleFonts.inter(
           fontSize: 14,
           fontWeight: FontWeight.w500,
           color: lightPrimaryText,
@@ -146,7 +147,7 @@ class AppTheme {
           horizontal: 16,
           vertical: 12,
         ),
-        hintStyle: const TextStyle(color: lightHintText, fontSize: 16),
+        hintStyle: GoogleFonts.inter(color: lightHintText, fontSize: 16),
       ),
     );
   }
@@ -172,61 +173,61 @@ class AppTheme {
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: darkPrimaryBackground,
         foregroundColor: darkPrimaryText,
         elevation: 0,
         centerTitle: true,
-        titleTextStyle: TextStyle(
+        titleTextStyle: GoogleFonts.inter(
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: darkPrimaryText,
         ),
       ),
-      textTheme: const TextTheme(
-        headlineLarge: TextStyle(
+      textTheme: GoogleFonts.interTextTheme().copyWith(
+        headlineLarge: GoogleFonts.inter(
           fontSize: 24,
           fontWeight: FontWeight.w700,
           color: darkPrimaryText,
           height: 1.2,
         ),
-        headlineMedium: TextStyle(
+        headlineMedium: GoogleFonts.inter(
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: darkPrimaryText,
           height: 1.2,
         ),
-        headlineSmall: TextStyle(
+        headlineSmall: GoogleFonts.inter(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: darkPrimaryText,
           height: 1.2,
         ),
-        bodyLarge: TextStyle(
+        bodyLarge: GoogleFonts.inter(
           fontSize: 18,
           fontWeight: FontWeight.w400,
           color: darkPrimaryText,
           height: 1.6,
         ),
-        bodyMedium: TextStyle(
+        bodyMedium: GoogleFonts.inter(
           fontSize: 16,
           fontWeight: FontWeight.w400,
           color: darkPrimaryText,
           height: 1.5,
         ),
-        bodySmall: TextStyle(
+        bodySmall: GoogleFonts.inter(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: darkSecondaryText,
           height: 1.5,
         ),
-        labelLarge: TextStyle(
+        labelLarge: GoogleFonts.inter(
           fontSize: 16,
           fontWeight: FontWeight.w500,
           color: darkPrimaryText,
           height: 1.4,
         ),
-        labelMedium: TextStyle(
+        labelMedium: GoogleFonts.inter(
           fontSize: 14,
           fontWeight: FontWeight.w500,
           color: darkPrimaryText,
@@ -271,7 +272,7 @@ class AppTheme {
           horizontal: 16,
           vertical: 12,
         ),
-        hintStyle: const TextStyle(color: darkHintText, fontSize: 16),
+        hintStyle: GoogleFonts.inter(color: darkHintText, fontSize: 16),
       ),
     );
   }

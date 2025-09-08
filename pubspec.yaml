@@ -43,6 +43,7 @@ dependencies:
   xml: ^6.3.0
   path: ^1.8.3
   epubx: ^4.0.0
+  google_fonts: ^6.0.0
 
 dev_dependencies:
   flutter_test:

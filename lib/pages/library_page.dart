@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/book_service.dart';
+import '../theme/app_theme.dart';
 import 'reader_page.dart';
 import 'dart:io';
 
@@ -84,12 +85,13 @@ class _LibraryPageState extends State<LibraryPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Library',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
+                      fontFamily: AppTheme.primaryFontFamily,
                     ),
                   ),
                   IconButton(
@@ -198,10 +200,11 @@ class _LibraryPageState extends State<LibraryPage> {
                 children: [
                   Text(
                     book.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
+                      fontFamily: AppTheme.primaryFontFamily,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -209,7 +212,11 @@ class _LibraryPageState extends State<LibraryPage> {
                   const SizedBox(height: 4),
                   Text(
                     'Author: ${book.author}',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                      fontFamily: AppTheme.primaryFontFamily,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -249,20 +256,28 @@ class _LibraryPageState extends State<LibraryPage> {
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey[600],
+                fontFamily: AppTheme.primaryFontFamily,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               'Import your first book to get started',
-              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[500],
+                fontFamily: AppTheme.primaryFontFamily,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _showImportDialog,
               icon: const Icon(Icons.book),
-              label: const Text('Import Book'),
+              label: Text(
+                'Import Book',
+                style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
                 foregroundColor: Colors.white,
@@ -282,30 +297,48 @@ class _LibraryPageState extends State<LibraryPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Import Book'),
-        content: const Column(
+        title: Text(
+          'Import Book',
+          style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
+        ),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Choose a book file to import:'),
-            SizedBox(height: 16),
+            Text(
+              'Choose a book file to import:',
+              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
+            ),
+            const SizedBox(height: 16),
             ListTile(
-              leading: Icon(Icons.file_upload),
-              title: Text('Upload File'),
-              subtitle: Text('EPUB, TXT'),
+              leading: const Icon(Icons.file_upload),
+              title: Text(
+                'Upload File',
+                style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
+              ),
+              subtitle: Text(
+                'EPUB, TXT',
+                style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
+              ),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
               Navigator.of(context).pop();
               await _importBook();
             },
-            child: const Text('Upload File'),
+            child: Text(
+              'Upload File',
+              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
+            ),
           ),
         ],
       ),
@@ -321,7 +354,10 @@ class _LibraryPageState extends State<LibraryPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Successfully imported "${book.title}"'),
+              content: Text(
+                'Successfully imported "${book.title}"',
+                style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
+              ),
               duration: const Duration(seconds: 3),
             ),
           );
@@ -348,7 +384,10 @@ class _LibraryPageState extends State<LibraryPage> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(errorMessage),
+            content: Text(
+              errorMessage,
+              style: TextStyle(fontFamily: AppTheme.primaryFontFamily),
+            ),
             duration: const Duration(seconds: 5),
             backgroundColor: Colors.red,
             action: SnackBarAction(
